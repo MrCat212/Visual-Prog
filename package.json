@@ -1,0 +1,15 @@
+{
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }, 
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts --watch",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "start": "tsx src/1.ts"
+  }
+}
