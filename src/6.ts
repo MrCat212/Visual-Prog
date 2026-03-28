@@ -17,4 +17,3 @@ export type PickedByType<T, U> = {
 export type EventHandlers<T extends Record<string, any>> = {
   [K in keyof T as `on${Capitalize<string & K>}`]: (event: T[K]) => void;
 };
-
