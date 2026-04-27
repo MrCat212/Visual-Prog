@@ -11,7 +11,10 @@
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts --watch",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
-    "start": "tsx src/1.ts"
+    "start": "tsx src/1.ts",
+    "dev:7lab": "vite src/7lab --open",
+    "dev:8-9lab": "vite src/8-9lab --open",
+    "build:8-9lab": "vite build src/8-9lab"
   },
   "dependencies": {
     "@types/react": "^19.2.14",
