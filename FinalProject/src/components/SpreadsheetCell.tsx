@@ -48,14 +48,14 @@ function SpreadsheetCell({
     }
   }
 
-  let className = 'spreadsheet-cell';
+  let cellClassName = 'spreadsheet-cell';
 
   if (isSelected) {
-    className += ' selected-cell';
+    cellClassName += ' selected-cell';
   }
 
   return (
-    <td className={className} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+    <td className={cellClassName} onClick={handleClick} onDoubleClick={handleDoubleClick}>
       {isEditing ? (
         <input
           className="cell-input"
