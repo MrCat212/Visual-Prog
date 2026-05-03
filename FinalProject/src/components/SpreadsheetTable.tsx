@@ -1,14 +1,21 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 
 import FormulaBar from '@/components/FormulaBar';
 import SpreadsheetCell from '@/components/SpreadsheetCell';
 import type { Cell, SelectedCell, SelectedRange, TableData } from '@/types/spreadsheet';
 import { recalculateTable } from '@/utils/formulaUtils';
-import { createTable, getColumnName } from '@/utils/tableUtils';
+import { createEmptyCell, createTable, getColumnName } from '@/utils/tableUtils';
 
 const ROWS = 100;
 const COLS = 26;
+
+type ContextMenuState = {
+  row: number;
+  col: number;
+  x: number;
+  y: number;
+};
 
 function SpreadsheetTable() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -24,15 +31,18 @@ function SpreadsheetTable() {
 
   const [editingCell, setEditingCell] = useState<SelectedCell | null>(null);
 
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
   const columnNames = useMemo(() => {
     const names: string[] = [];
+    const colsCount = table[0]?.length ?? 0;
 
-    for (let i = 0; i < COLS; i++) {
+    for (let i = 0; i < colsCount; i++) {
       names.push(getColumnName(i));
     }
 
     return names;
-  }, []);
+  }, [table]);
 
   const activeCell = table[selectedCell.row][selectedCell.col];
 
@@ -55,6 +65,7 @@ function SpreadsheetTable() {
         col,
       });
 
+      setContextMenu(null);
       wrapperRef.current?.focus();
     },
     [selectedCell],
@@ -69,6 +80,19 @@ function SpreadsheetTable() {
 
   const handleStopEdit = useCallback(() => {
     setEditingCell(null);
+  }, []);
+
+  const handleOpenContextMenu = useCallback((row: number, col: number, x: number, y: number) => {
+    setContextMenu({
+      row,
+      col,
+      x,
+      y,
+    });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
   }, []);
 
   const handleCellChange = useCallback((row: number, col: number, value: string) => {
@@ -97,6 +121,129 @@ function SpreadsheetTable() {
     });
   }, []);
 
+  const handleAddRow = useCallback(() => {
+    if (contextMenu === null) {
+      return;
+    }
+
+    setTable((oldTable) => {
+      const newTable: TableData = [];
+      const colsCount = oldTable[0]?.length ?? COLS;
+
+      for (let i = 0; i < oldTable.length; i++) {
+        newTable.push(oldTable[i]);
+
+        if (i === contextMenu.row) {
+          const newRow: Cell[] = [];
+
+          for (let j = 0; j < colsCount; j++) {
+            newRow.push(createEmptyCell());
+          }
+
+          newTable.push(newRow);
+        }
+      }
+
+      return recalculateTable(newTable);
+    });
+
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleDeleteRow = useCallback(() => {
+    if (contextMenu === null) {
+      return;
+    }
+
+    setTable((oldTable) => {
+      if (oldTable.length <= 1) {
+        return oldTable;
+      }
+
+      const newTable: TableData = [];
+
+      for (let i = 0; i < oldTable.length; i++) {
+        if (i !== contextMenu.row) {
+          newTable.push(oldTable[i]);
+        }
+      }
+
+      return recalculateTable(newTable);
+    });
+
+    setSelectedCell({
+      row: Math.max(0, contextMenu.row - 1),
+      col: contextMenu.col,
+    });
+
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleAddColumn = useCallback(() => {
+    if (contextMenu === null) {
+      return;
+    }
+
+    setTable((oldTable) => {
+      const newTable: TableData = [];
+
+      for (let i = 0; i < oldTable.length; i++) {
+        const newRow: Cell[] = [];
+
+        for (let j = 0; j < oldTable[i].length; j++) {
+          newRow.push(oldTable[i][j]);
+
+          if (j === contextMenu.col) {
+            newRow.push(createEmptyCell());
+          }
+        }
+
+        newTable.push(newRow);
+      }
+
+      return recalculateTable(newTable);
+    });
+
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleDeleteColumn = useCallback(() => {
+    if (contextMenu === null) {
+      return;
+    }
+
+    setTable((oldTable) => {
+      const colsCount = oldTable[0]?.length ?? 0;
+
+      if (colsCount <= 1) {
+        return oldTable;
+      }
+
+      const newTable: TableData = [];
+
+      for (let i = 0; i < oldTable.length; i++) {
+        const newRow: Cell[] = [];
+
+        for (let j = 0; j < oldTable[i].length; j++) {
+          if (j !== contextMenu.col) {
+            newRow.push(oldTable[i][j]);
+          }
+        }
+
+        newTable.push(newRow);
+      }
+
+      return recalculateTable(newTable);
+    });
+
+    setSelectedCell({
+      row: contextMenu.row,
+      col: Math.max(0, contextMenu.col - 1),
+    });
+
+    setContextMenu(null);
+  }, [contextMenu]);
+
   const handleTableKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (event.key === 'Enter' && editingCell === null) {
@@ -107,9 +254,19 @@ function SpreadsheetTable() {
           col: selectedCell.col,
         });
       }
+
+      if (event.key === 'Escape') {
+        setContextMenu(null);
+      }
     },
     [editingCell, selectedCell],
   );
+
+  function handleWrapperClick(event: MouseEvent<HTMLDivElement>) {
+    if (event.button === 0) {
+      setContextMenu(null);
+    }
+  }
 
   function isCellInSelectedRange(row: number, col: number): boolean {
     if (selectedRange === null) {
@@ -130,6 +287,7 @@ function SpreadsheetTable() {
       ref={wrapperRef}
       tabIndex={0}
       onKeyDown={handleTableKeyDown}
+      onClick={handleWrapperClick}
     >
       <FormulaBar value={activeCell.value} />
 
@@ -169,6 +327,7 @@ function SpreadsheetTable() {
                     onChange={handleCellChange}
                     onStartEdit={handleStartEdit}
                     onStopEdit={handleStopEdit}
+                    onOpenContextMenu={handleOpenContextMenu}
                   />
                 ))}
               </tr>
@@ -176,6 +335,36 @@ function SpreadsheetTable() {
           </tbody>
         </table>
       </div>
+
+      {contextMenu !== null && (
+        <div
+          className="context-menu"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+          }}
+        >
+          <button type="button" onClick={handleAddRow}>
+            Добавить строку ниже
+          </button>
+
+          <button type="button" onClick={handleDeleteRow}>
+            Удалить строку
+          </button>
+
+          <button type="button" onClick={handleAddColumn}>
+            Добавить столбец справа
+          </button>
+
+          <button type="button" onClick={handleDeleteColumn}>
+            Удалить столбец
+          </button>
+
+          <button type="button" onClick={handleCloseContextMenu}>
+            Закрыть
+          </button>
+        </div>
+      )}
     </div>
   );
 }

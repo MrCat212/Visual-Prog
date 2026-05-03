@@ -25,5 +25,14 @@ export function createTable(rows: number, cols: number): TableData {
 }
 
 export function getColumnName(index: number): string {
-  return String.fromCharCode(65 + index);
+  let name = '';
+  let number = index;
+
+  while (number >= 0) {
+    const letterCode = (number % 26) + 65;
+    name = String.fromCharCode(letterCode) + name;
+    number = Math.floor(number / 26) - 1;
+  }
+
+  return name;
 }

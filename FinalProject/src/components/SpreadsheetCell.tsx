@@ -14,6 +14,7 @@ type SpreadsheetCellProps = {
   onChange: (row: number, col: number, value: string) => void;
   onStartEdit: (row: number, col: number) => void;
   onStopEdit: () => void;
+  onOpenContextMenu: (row: number, col: number, x: number, y: number) => void;
 };
 
 function SpreadsheetCell({
@@ -27,6 +28,7 @@ function SpreadsheetCell({
   onChange,
   onStartEdit,
   onStopEdit,
+  onOpenContextMenu,
 }: SpreadsheetCellProps) {
   const [editValue, setEditValue] = useState(cell.value);
 
@@ -43,6 +45,13 @@ function SpreadsheetCell({
   function handleDoubleClick() {
     onSelect(row, col, false);
     onStartEdit(row, col);
+  }
+
+  function handleContextMenu(event: MouseEvent<HTMLTableCellElement>) {
+    event.preventDefault();
+
+    onSelect(row, col, false);
+    onOpenContextMenu(row, col, event.clientX, event.clientY);
   }
 
   function finishEditing() {
@@ -80,7 +89,12 @@ function SpreadsheetCell({
   }
 
   return (
-    <td className={cellClassName} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+    <td
+      className={cellClassName}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
+    >
       {isEditing ? (
         <input
           className="cell-input"
