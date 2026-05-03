@@ -4,6 +4,7 @@ import FormulaBar from '@/components/FormulaBar';
 import SpreadsheetCell from '@/components/SpreadsheetCell';
 import type { Cell, SelectedCell, TableData } from '@/types/spreadsheet';
 import { createTable, getColumnName } from '@/utils/tableUtils';
+import { recalculateTable } from '@/utils/formulaUtils';
 
 const ROWS = 100;
 const COLS = 26;
@@ -38,10 +39,10 @@ function SpreadsheetTable() {
   const handleCellChange = useCallback((row: number, col: number, value: string) => {
     setTable((oldTable) => {
       const newTable: TableData = [];
-
+  
       for (let i = 0; i < oldTable.length; i++) {
         const newRow: Cell[] = [];
-
+  
         for (let j = 0; j < oldTable[i].length; j++) {
           if (i === row && j === col) {
             newRow.push({
@@ -53,11 +54,11 @@ function SpreadsheetTable() {
             newRow.push(oldTable[i][j]);
           }
         }
-
+  
         newTable.push(newRow);
       }
-
-      return newTable;
+  
+      return recalculateTable(newTable);
     });
   }, []);
 
