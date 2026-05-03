@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react';
 
 import FormulaBar from '@/components/FormulaBar';
 import SpreadsheetCell from '@/components/SpreadsheetCell';
-import type { Cell, SelectedCell, TableData } from '@/types/spreadsheet';
+import type { Cell, SelectedCell, SelectedRange, TableData } from '@/types/spreadsheet';
 import { recalculateTable } from '@/utils/formulaUtils';
 import { createTable, getColumnName } from '@/utils/tableUtils';
 
@@ -20,6 +20,8 @@ function SpreadsheetTable() {
     col: 0,
   });
 
+  const [selectedRange, setSelectedRange] = useState<SelectedRange | null>(null);
+
   const [editingCell, setEditingCell] = useState<SelectedCell | null>(null);
 
   const columnNames = useMemo(() => {
@@ -34,14 +36,29 @@ function SpreadsheetTable() {
 
   const activeCell = table[selectedCell.row][selectedCell.col];
 
-  const handleSelect = useCallback((row: number, col: number) => {
-    setSelectedCell({
-      row,
-      col,
-    });
+  const handleSelect = useCallback(
+    (row: number, col: number, withShift: boolean) => {
+      if (withShift) {
+        setSelectedRange({
+          start: selectedCell,
+          end: {
+            row,
+            col,
+          },
+        });
+      } else {
+        setSelectedRange(null);
+      }
 
-    wrapperRef.current?.focus();
-  }, []);
+      setSelectedCell({
+        row,
+        col,
+      });
+
+      wrapperRef.current?.focus();
+    },
+    [selectedCell],
+  );
 
   const handleStartEdit = useCallback((row: number, col: number) => {
     setEditingCell({
@@ -94,6 +111,19 @@ function SpreadsheetTable() {
     [editingCell, selectedCell],
   );
 
+  function isCellInSelectedRange(row: number, col: number): boolean {
+    if (selectedRange === null) {
+      return false;
+    }
+
+    const startRow = Math.min(selectedRange.start.row, selectedRange.end.row);
+    const endRow = Math.max(selectedRange.start.row, selectedRange.end.row);
+    const startCol = Math.min(selectedRange.start.col, selectedRange.end.col);
+    const endCol = Math.max(selectedRange.start.col, selectedRange.end.col);
+
+    return row >= startRow && row <= endRow && col >= startCol && col <= endCol;
+  }
+
   return (
     <div
       className="spreadsheet-wrapper"
@@ -129,6 +159,7 @@ function SpreadsheetTable() {
                     row={rowIndex}
                     col={colIndex}
                     isSelected={selectedCell.row === rowIndex && selectedCell.col === colIndex}
+                    isInSelectedRange={isCellInSelectedRange(rowIndex, colIndex)}
                     isEditing={
                       editingCell !== null &&
                       editingCell.row === rowIndex &&

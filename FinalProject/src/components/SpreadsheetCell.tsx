@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 
 import type { Cell } from '@/types/spreadsheet';
 
@@ -8,8 +8,9 @@ type SpreadsheetCellProps = {
   row: number;
   col: number;
   isSelected: boolean;
+  isInSelectedRange: boolean;
   isEditing: boolean;
-  onSelect: (row: number, col: number) => void;
+  onSelect: (row: number, col: number, withShift: boolean) => void;
   onChange: (row: number, col: number, value: string) => void;
   onStartEdit: (row: number, col: number) => void;
   onStopEdit: () => void;
@@ -20,6 +21,7 @@ function SpreadsheetCell({
   row,
   col,
   isSelected,
+  isInSelectedRange,
   isEditing,
   onSelect,
   onChange,
@@ -34,12 +36,12 @@ function SpreadsheetCell({
     }
   }, [isEditing, cell.value]);
 
-  function handleClick() {
-    onSelect(row, col);
+  function handleClick(event: MouseEvent<HTMLTableCellElement>) {
+    onSelect(row, col, event.shiftKey);
   }
 
   function handleDoubleClick() {
-    onSelect(row, col);
+    onSelect(row, col, false);
     onStartEdit(row, col);
   }
 
@@ -68,6 +70,10 @@ function SpreadsheetCell({
   }
 
   let cellClassName = 'spreadsheet-cell';
+
+  if (isInSelectedRange) {
+    cellClassName += ' range-selected-cell';
+  }
 
   if (isSelected) {
     cellClassName += ' selected-cell';

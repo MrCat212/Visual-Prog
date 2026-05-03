@@ -93,6 +93,10 @@ input {
   background-color: #f5faff;
 }
 
+.range-selected-cell {
+  background-color: #e8f2ff;
+}
+
 .selected-cell {
   outline: 2px solid #1976d2;
   outline-offset: -2px;

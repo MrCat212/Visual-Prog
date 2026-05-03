@@ -12,3 +12,8 @@ export type SelectedCell = {
   row: number;
   col: number;
 };
+
+export type SelectedRange = {
+  start: SelectedCell;
+  end: SelectedCell;
+};
