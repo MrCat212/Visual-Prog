@@ -26,6 +26,10 @@ input {
   border: 1px solid #cfcfcf;
 }
 
+.spreadsheet-wrapper:focus {
+  outline: none;
+}
+
 .formula-bar {
   display: flex;
   align-items: center;
