@@ -11,6 +11,8 @@ const ROWS = 100;
 const COLS = 26;
 const DEFAULT_COLUMN_WIDTH = 100;
 const MIN_COLUMN_WIDTH = 50;
+const DEFAULT_ROW_HEIGHT = 28;
+const MIN_ROW_HEIGHT = 22;
 
 type ContextMenuState = {
   row: number;
@@ -23,6 +25,12 @@ type ResizingColumn = {
   col: number;
   startX: number;
   startWidth: number;
+};
+
+type ResizingRow = {
+  row: number;
+  startY: number;
+  startHeight: number;
 };
 
 function SpreadsheetTable() {
@@ -40,6 +48,16 @@ function SpreadsheetTable() {
     return widths;
   });
 
+  const [rowHeights, setRowHeights] = useState<number[]>(() => {
+    const heights: number[] = [];
+
+    for (let i = 0; i < ROWS; i++) {
+      heights.push(DEFAULT_ROW_HEIGHT);
+    }
+
+    return heights;
+  });
+
   const [selectedCell, setSelectedCell] = useState<SelectedCell>({
     row: 0,
     col: 0,
@@ -52,6 +70,8 @@ function SpreadsheetTable() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
+
+  const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
 
   const columnNames = useMemo(() => {
     const names: string[] = [];
@@ -167,6 +187,20 @@ function SpreadsheetTable() {
       return recalculateTable(newTable);
     });
 
+    setRowHeights((oldHeights) => {
+      const newHeights: number[] = [];
+
+      for (let i = 0; i < oldHeights.length; i++) {
+        newHeights.push(oldHeights[i]);
+
+        if (i === contextMenu.row) {
+          newHeights.push(DEFAULT_ROW_HEIGHT);
+        }
+      }
+
+      return newHeights;
+    });
+
     setContextMenu(null);
   }, [contextMenu]);
 
@@ -189,6 +223,22 @@ function SpreadsheetTable() {
       }
 
       return recalculateTable(newTable);
+    });
+
+    setRowHeights((oldHeights) => {
+      if (oldHeights.length <= 1) {
+        return oldHeights;
+      }
+
+      const newHeights: number[] = [];
+
+      for (let i = 0; i < oldHeights.length; i++) {
+        if (i !== contextMenu.row) {
+          newHeights.push(oldHeights[i]);
+        }
+      }
+
+      return newHeights;
     });
 
     setSelectedCell({
@@ -307,6 +357,19 @@ function SpreadsheetTable() {
     [columnWidths],
   );
 
+  const handleRowResizeStart = useCallback(
+    (row: number, startY: number) => {
+      const startHeight = rowHeights[row] ?? DEFAULT_ROW_HEIGHT;
+
+      setResizingRow({
+        row,
+        startY,
+        startHeight,
+      });
+    },
+    [rowHeights],
+  );
+
   useEffect(() => {
     if (resizingColumn === null) {
       return;
@@ -348,6 +411,45 @@ function SpreadsheetTable() {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [resizingColumn]);
+
+  useEffect(() => {
+    if (resizingRow === null) {
+      return;
+    }
+
+    const currentResizingRow = resizingRow;
+
+    function handleMouseMove(event: globalThis.MouseEvent) {
+      const difference = event.clientY - currentResizingRow.startY;
+      const newHeight = Math.max(MIN_ROW_HEIGHT, currentResizingRow.startHeight + difference);
+
+      setRowHeights((oldHeights) => {
+        const newHeights: number[] = [];
+
+        for (let i = 0; i < oldHeights.length; i++) {
+          if (i === currentResizingRow.row) {
+            newHeights.push(newHeight);
+          } else {
+            newHeights.push(oldHeights[i]);
+          }
+        }
+
+        return newHeights;
+      });
+    }
+
+    function handleMouseUp() {
+      setResizingRow(null);
+    }
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingRow]);
 
   const handleTableKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -428,7 +530,22 @@ function SpreadsheetTable() {
           <tbody>
             {table.map((row, rowIndex) => (
               <tr key={rowIndex}>
-                <th className="row-header">{rowIndex + 1}</th>
+                <th
+                  className="row-header"
+                  style={{
+                    height: rowHeights[rowIndex],
+                  }}
+                >
+                  {rowIndex + 1}
+
+                  <span
+                    className="row-resize-handle"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      handleRowResizeStart(rowIndex, event.clientY);
+                    }}
+                  />
+                </th>
 
                 {row.map((cell, colIndex) => (
                   <SpreadsheetCell
@@ -437,6 +554,7 @@ function SpreadsheetTable() {
                     row={rowIndex}
                     col={colIndex}
                     width={columnWidths[colIndex] ?? DEFAULT_COLUMN_WIDTH}
+                    height={rowHeights[rowIndex] ?? DEFAULT_ROW_HEIGHT}
                     isSelected={selectedCell.row === rowIndex && selectedCell.col === colIndex}
                     isInSelectedRange={isCellInSelectedRange(rowIndex, colIndex)}
                     isEditing={

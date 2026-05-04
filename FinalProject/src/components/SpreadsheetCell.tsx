@@ -8,6 +8,7 @@ type SpreadsheetCellProps = {
   row: number;
   col: number;
   width: number;
+  height: number;
   isSelected: boolean;
   isInSelectedRange: boolean;
   isEditing: boolean;
@@ -23,6 +24,7 @@ function SpreadsheetCell({
   row,
   col,
   width,
+  height,
   isSelected,
   isInSelectedRange,
   isEditing,
@@ -96,6 +98,7 @@ function SpreadsheetCell({
       style={{
         width,
         minWidth: width,
+        height,
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
