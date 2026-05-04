@@ -161,3 +161,100 @@ input {
   cursor: col-resize;
   user-select: none;
 }
+
+.dashboard-page {
+  padding: 20px;
+}
+
+.dashboard-header {
+  margin-bottom: 20px;
+}
+
+.dashboard-header h1 {
+  margin-bottom: 6px;
+}
+
+.create-document-block {
+  padding: 16px;
+  margin-bottom: 20px;
+  background-color: white;
+  border: 1px solid #cfcfcf;
+}
+
+.create-document-block h2 {
+  margin-top: 0;
+}
+
+.create-document-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.create-document-form input {
+  padding: 8px;
+  border: 1px solid #bdbdbd;
+}
+
+.create-document-form button {
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.documents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.document-card {
+  padding: 16px;
+  background-color: white;
+  border: 1px solid #cfcfcf;
+}
+
+.document-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.document-card h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.document-card p {
+  margin: 4px 0;
+}
+
+.document-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.document-actions button {
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.document-preview {
+  display: inline-block;
+  margin-top: 14px;
+  border: 1px solid #dcdcdc;
+}
+
+.preview-row {
+  display: flex;
+}
+
+.preview-cell {
+  width: 70px;
+  height: 28px;
+  padding: 5px;
+  border: 1px solid #dcdcdc;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

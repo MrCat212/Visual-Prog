@@ -1,12 +1,7 @@
-import SpreadsheetTable from '@/components/SpreadsheetTable';
+import DashboardPage from '@/pages/DashboardPage';
 
 function App() {
-  return (
-    <div className="app">
-      <h1>Табличка</h1>
-      <SpreadsheetTable />
-    </div>
-  );
+  return <DashboardPage />;
 }
 
 export default App;
