@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
 
 import SpreadsheetTable from '@/components/SpreadsheetTable';
 import { getDocumentById, updateDocumentData } from '@/services/documentService';
 import { mockUser } from '@/services/mockUser';
 import type { SpreadsheetDocument } from '@/types/document';
 import type { TableData } from '@/types/spreadsheet';
+import {
+  csvToTable,
+  downloadTextFile,
+  tableToCsv,
+  tableToJson,
+} from '@/utils/fileUtils';
 
 type SpreadsheetPageProps = {
   documentId: string;
@@ -105,6 +112,56 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     setHasUnsavedChanges(true);
   }
 
+  function handleExportCsv() {
+    if (document === null || table === null) {
+      return;
+    }
+
+    const csv = tableToCsv(table);
+    downloadTextFile(document.title + '.csv', csv, 'text/csv');
+  }
+
+  function handleExportJson() {
+    if (document === null || table === null) {
+      return;
+    }
+
+    const json = tableToJson(table);
+    downloadTextFile(document.title + '.json', json, 'application/json');
+  }
+
+  function handleImportCsv(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (file === undefined) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+
+      if (typeof result !== 'string') {
+        alert('Не получилось прочитать файл');
+        return;
+      }
+
+      const importedTable = csvToTable(result);
+
+      if (importedTable.length === 0) {
+        alert('CSV файл пустой');
+        return;
+      }
+
+      setTable(importedTable);
+      setHasUnsavedChanges(true);
+    };
+
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
   function getSaveStatusText(): string {
     if (saveStatus === 'saving') {
       return 'Сохранение...';
@@ -156,6 +213,19 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
           <button type="button" onClick={saveDocumentNow}>
             Сохранить
           </button>
+
+          <button type="button" onClick={handleExportCsv}>
+            CSV
+          </button>
+
+          <button type="button" onClick={handleExportJson}>
+            JSON
+          </button>
+
+          <label className="import-button">
+            Импорт CSV
+            <input type="file" accept=".csv,text/csv" onChange={handleImportCsv} />
+          </label>
 
           <button type="button" onClick={handleBackClick}>
             Назад к документам

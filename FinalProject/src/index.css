@@ -297,3 +297,16 @@ input {
   padding: 8px 12px;
   cursor: pointer;
 }
+
+.import-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #eeeeee;
+  border: 1px solid #bdbdbd;
+  cursor: pointer;
+}
+
+.import-button input {
+  display: none;
+}

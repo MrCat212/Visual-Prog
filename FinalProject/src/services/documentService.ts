@@ -112,8 +112,13 @@ export function updateDocumentData(
     return null;
   }
 
+  const rows = data.length;
+  const cols = data[0]?.length ?? 0;
+
   return updateDocument({
     ...document,
+    rows,
+    cols,
     data,
   });
 }
