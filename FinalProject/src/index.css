@@ -283,3 +283,17 @@ input {
   padding: 8px 12px;
   cursor: pointer;
 }
+
+.save-status {
+  font-weight: bold;
+}
+
+.spreadsheet-page-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.spreadsheet-page-actions button {
+  padding: 8px 12px;
+  cursor: pointer;
+}
