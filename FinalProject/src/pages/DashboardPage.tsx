@@ -10,7 +10,11 @@ import {
 } from '@/services/documentService';
 import type { SpreadsheetDocument } from '@/types/document';
 
-function DashboardPage() {
+type DashboardPageProps = {
+    onOpenDocument: (documentId: string) => void;
+  };
+
+  function DashboardPage({ onOpenDocument }: DashboardPageProps) {
   const [documents, setDocuments] = useState<SpreadsheetDocument[]>([]);
   const [newDocumentTitle, setNewDocumentTitle] = useState('');
   const [newDocumentRows, setNewDocumentRows] = useState(100);
@@ -147,9 +151,9 @@ function DashboardPage() {
                 </div>
 
                 <div className="document-actions">
-                  <button type="button" onClick={() => alert('Пока что просто заглушка')}>
+                <button type="button" onClick={() => onOpenDocument(document.id)}>
                     Открыть
-                  </button>
+                </button>
 
                   <button type="button" onClick={() => handleRenameDocument(document)}>
                     Переименовать

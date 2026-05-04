@@ -258,3 +258,28 @@ input {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+.spreadsheet-page {
+  padding: 20px;
+}
+
+.spreadsheet-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.spreadsheet-page-header h1 {
+  margin: 0 0 6px;
+}
+
+.spreadsheet-page-header p {
+  margin: 0;
+}
+
+.spreadsheet-page-header button {
+  padding: 8px 12px;
+  cursor: pointer;
+}

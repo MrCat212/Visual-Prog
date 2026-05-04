@@ -1,4 +1,5 @@
 import type { CreateDocumentData, SpreadsheetDocument } from '@/types/document';
+import type { TableData } from '@/types/spreadsheet';
 import { createTable } from '@/utils/tableUtils';
 
 const STORAGE_KEY = 'spreadsheet_documents';
@@ -88,7 +89,7 @@ export function updateDocument(document: SpreadsheetDocument): SpreadsheetDocume
   };
 
   for (let i = 0; i < documents.length; i++) {
-    if (documents[i].id === document.id) {
+    if (documents[i].id === document.id && documents[i].userId === document.userId) {
       newDocuments.push(updatedDocument);
     } else {
       newDocuments.push(documents[i]);
@@ -98,6 +99,23 @@ export function updateDocument(document: SpreadsheetDocument): SpreadsheetDocume
   saveAllDocuments(newDocuments);
 
   return updatedDocument;
+}
+
+export function updateDocumentData(
+  documentId: string,
+  userId: string,
+  data: TableData,
+): SpreadsheetDocument | null {
+  const document = getDocumentById(documentId, userId);
+
+  if (document === null) {
+    return null;
+  }
+
+  return updateDocument({
+    ...document,
+    data,
+  });
 }
 
 export function renameDocument(

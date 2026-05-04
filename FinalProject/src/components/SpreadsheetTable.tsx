@@ -40,16 +40,31 @@ type VisibleRows = {
   end: number;
 };
 
-function SpreadsheetTable() {
+type SpreadsheetTableProps = {
+  initialTable?: TableData;
+  onTableChange?: (table: TableData) => void;
+};
+
+function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const [table, setTable] = useState<TableData>(() => createTable(ROWS, COLS));
+  const [table, setTable] = useState<TableData>(() => {
+    if (initialTable !== undefined) {
+      return initialTable;
+    }
+
+    return createTable(ROWS, COLS);
+  });
+
   const [scrollTop, setScrollTop] = useState(0);
 
   const [columnWidths, setColumnWidths] = useState<number[]>(() => {
+    const firstRow = initialTable?.[0];
+    const colsCount = firstRow?.length ?? COLS;
+
     const widths: number[] = [];
 
-    for (let i = 0; i < COLS; i++) {
+    for (let i = 0; i < colsCount; i++) {
       widths.push(DEFAULT_COLUMN_WIDTH);
     }
 
@@ -57,9 +72,11 @@ function SpreadsheetTable() {
   });
 
   const [rowHeights, setRowHeights] = useState<number[]>(() => {
+    const rowsCount = initialTable?.length ?? ROWS;
+
     const heights: number[] = [];
 
-    for (let i = 0; i < ROWS; i++) {
+    for (let i = 0; i < rowsCount; i++) {
       heights.push(DEFAULT_ROW_HEIGHT);
     }
 
@@ -127,7 +144,7 @@ function SpreadsheetTable() {
   const topPadding = rowOffsets[visibleRows.start];
   const bottomPadding = totalRowsHeight - rowOffsets[visibleRows.end];
 
-  const activeCell = table[selectedCell.row][selectedCell.col];
+  const activeCell = table[selectedCell.row]?.[selectedCell.col] ?? createEmptyCell();
 
   const visibleTableRows = useMemo(() => {
     return table.slice(visibleRows.start, visibleRows.end);
@@ -186,31 +203,40 @@ function SpreadsheetTable() {
     setContextMenu(null);
   }, []);
 
-  const handleCellChange = useCallback((row: number, col: number, value: string) => {
-    setTable((oldTable) => {
-      const newTable: TableData = [];
+  const handleCellChange = useCallback(
+    (row: number, col: number, value: string) => {
+      setTable((oldTable) => {
+        const newTable: TableData = [];
 
-      for (let i = 0; i < oldTable.length; i++) {
-        const newRow: Cell[] = [];
+        for (let i = 0; i < oldTable.length; i++) {
+          const newRow: Cell[] = [];
 
-        for (let j = 0; j < oldTable[i].length; j++) {
-          if (i === row && j === col) {
-            newRow.push({
-              value,
-              result: value,
-              type: 'text',
-            });
-          } else {
-            newRow.push(oldTable[i][j]);
+          for (let j = 0; j < oldTable[i].length; j++) {
+            if (i === row && j === col) {
+              newRow.push({
+                value,
+                result: value,
+                type: 'text',
+              });
+            } else {
+              newRow.push(oldTable[i][j]);
+            }
           }
+
+          newTable.push(newRow);
         }
 
-        newTable.push(newRow);
-      }
+        const recalculatedTable = recalculateTable(newTable);
 
-      return recalculateTable(newTable);
-    });
-  }, []);
+        if (onTableChange !== undefined) {
+          onTableChange(recalculatedTable);
+        }
+
+        return recalculatedTable;
+      });
+    },
+    [onTableChange],
+  );
 
   const handleAddRow = useCallback(() => {
     if (contextMenu === null) {
@@ -235,7 +261,13 @@ function SpreadsheetTable() {
         }
       }
 
-      return recalculateTable(newTable);
+      const recalculatedTable = recalculateTable(newTable);
+
+      if (onTableChange !== undefined) {
+        onTableChange(recalculatedTable);
+      }
+
+      return recalculatedTable;
     });
 
     setRowHeights((oldHeights) => {
@@ -253,7 +285,7 @@ function SpreadsheetTable() {
     });
 
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu, onTableChange]);
 
   const handleDeleteRow = useCallback(() => {
     if (contextMenu === null) {
@@ -273,7 +305,13 @@ function SpreadsheetTable() {
         }
       }
 
-      return recalculateTable(newTable);
+      const recalculatedTable = recalculateTable(newTable);
+
+      if (onTableChange !== undefined) {
+        onTableChange(recalculatedTable);
+      }
+
+      return recalculatedTable;
     });
 
     setRowHeights((oldHeights) => {
@@ -298,7 +336,7 @@ function SpreadsheetTable() {
     });
 
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu, onTableChange]);
 
   const handleAddColumn = useCallback(() => {
     if (contextMenu === null) {
@@ -322,7 +360,13 @@ function SpreadsheetTable() {
         newTable.push(newRow);
       }
 
-      return recalculateTable(newTable);
+      const recalculatedTable = recalculateTable(newTable);
+
+      if (onTableChange !== undefined) {
+        onTableChange(recalculatedTable);
+      }
+
+      return recalculatedTable;
     });
 
     setColumnWidths((oldWidths) => {
@@ -340,7 +384,7 @@ function SpreadsheetTable() {
     });
 
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu, onTableChange]);
 
   const handleDeleteColumn = useCallback(() => {
     if (contextMenu === null) {
@@ -368,7 +412,13 @@ function SpreadsheetTable() {
         newTable.push(newRow);
       }
 
-      return recalculateTable(newTable);
+      const recalculatedTable = recalculateTable(newTable);
+
+      if (onTableChange !== undefined) {
+        onTableChange(recalculatedTable);
+      }
+
+      return recalculatedTable;
     });
 
     setColumnWidths((oldWidths) => {
@@ -393,7 +443,7 @@ function SpreadsheetTable() {
     });
 
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu, onTableChange]);
 
   const handleColumnResizeStart = useCallback(
     (col: number, startX: number) => {
@@ -579,15 +629,15 @@ function SpreadsheetTable() {
           </thead>
 
           <tbody>
-          {topPadding > 0 && (
-            <tr className="virtual-spacer-row">
-              <td
-              className="virtual-spacer-cell"
-              colSpan={columnNames.length + 1}
-              style={{
-                height: topPadding,
-              }}
-              />
+            {topPadding > 0 && (
+              <tr className="virtual-spacer-row">
+                <td
+                  className="virtual-spacer-cell"
+                  colSpan={columnNames.length + 1}
+                  style={{
+                    height: topPadding,
+                  }}
+                />
               </tr>
             )}
 
@@ -640,13 +690,12 @@ function SpreadsheetTable() {
             })}
 
             {bottomPadding > 0 && (
-              <tr>
+              <tr className="virtual-spacer-row">
                 <td
+                  className="virtual-spacer-cell"
                   colSpan={columnNames.length + 1}
                   style={{
                     height: bottomPadding,
-                    padding: 0,
-                    border: 'none',
                   }}
                 />
               </tr>
