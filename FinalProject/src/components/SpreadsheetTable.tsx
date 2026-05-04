@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent, MouseEvent, UIEvent } from 'react';
 
 import FormulaBar from '@/components/FormulaBar';
 import SpreadsheetCell from '@/components/SpreadsheetCell';
@@ -7,12 +7,14 @@ import type { Cell, SelectedCell, SelectedRange, TableData } from '@/types/sprea
 import { recalculateTable } from '@/utils/formulaUtils';
 import { createEmptyCell, createTable, getColumnName } from '@/utils/tableUtils';
 
-const ROWS = 100;
+const ROWS = 1000;
 const COLS = 26;
 const DEFAULT_COLUMN_WIDTH = 100;
 const MIN_COLUMN_WIDTH = 50;
 const DEFAULT_ROW_HEIGHT = 28;
 const MIN_ROW_HEIGHT = 22;
+const TABLE_HEIGHT = 600;
+const EXTRA_ROWS = 20;
 
 type ContextMenuState = {
   row: number;
@@ -33,10 +35,16 @@ type ResizingRow = {
   startHeight: number;
 };
 
+type VisibleRows = {
+  start: number;
+  end: number;
+};
+
 function SpreadsheetTable() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const [table, setTable] = useState<TableData>(() => createTable(ROWS, COLS));
+  const [scrollTop, setScrollTop] = useState(0);
 
   const [columnWidths, setColumnWidths] = useState<number[]>(() => {
     const widths: number[] = [];
@@ -64,27 +72,70 @@ function SpreadsheetTable() {
   });
 
   const [selectedRange, setSelectedRange] = useState<SelectedRange | null>(null);
-
   const [editingCell, setEditingCell] = useState<SelectedCell | null>(null);
-
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-
   const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
-
   const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
+
+  const columnCount = table[0]?.length ?? 0;
 
   const columnNames = useMemo(() => {
     const names: string[] = [];
-    const colsCount = table[0]?.length ?? 0;
 
-    for (let i = 0; i < colsCount; i++) {
+    for (let i = 0; i < columnCount; i++) {
       names.push(getColumnName(i));
     }
 
     return names;
-  }, [table]);
+  }, [columnCount]);
+
+  const rowOffsets = useMemo(() => {
+    const offsets: number[] = [0];
+
+    for (let i = 0; i < rowHeights.length; i++) {
+      offsets.push(offsets[i] + rowHeights[i]);
+    }
+
+    return offsets;
+  }, [rowHeights]);
+
+  const totalRowsHeight = rowOffsets[rowOffsets.length - 1];
+
+  const visibleRows = useMemo<VisibleRows>(() => {
+    let start = 0;
+
+    while (start < table.length - 1 && rowOffsets[start + 1] < scrollTop) {
+      start++;
+    }
+
+    start = Math.max(0, start - EXTRA_ROWS);
+
+    let end = start;
+
+    while (end < table.length && rowOffsets[end] < scrollTop + TABLE_HEIGHT) {
+      end++;
+    }
+
+    end = Math.min(table.length, end + EXTRA_ROWS);
+
+    return {
+      start,
+      end,
+    };
+  }, [rowOffsets, scrollTop, table.length]);
+
+  const topPadding = rowOffsets[visibleRows.start];
+  const bottomPadding = totalRowsHeight - rowOffsets[visibleRows.end];
 
   const activeCell = table[selectedCell.row][selectedCell.col];
+
+  const visibleTableRows = useMemo(() => {
+    return table.slice(visibleRows.start, visibleRows.end);
+  }, [table, visibleRows]);
+
+  const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    setScrollTop(event.currentTarget.scrollTop);
+  }, []);
 
   const handleSelect = useCallback(
     (row: number, col: number, withShift: boolean) => {
@@ -498,7 +549,7 @@ function SpreadsheetTable() {
     >
       <FormulaBar value={activeCell.value} />
 
-      <div className="table-scroll">
+      <div className="table-scroll" onScroll={handleScroll}>
         <table className="spreadsheet-table">
           <thead>
             <tr>
@@ -528,49 +579,78 @@ function SpreadsheetTable() {
           </thead>
 
           <tbody>
-            {table.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                <th
-                  className="row-header"
-                  style={{
-                    height: rowHeights[rowIndex],
-                  }}
-                >
-                  {rowIndex + 1}
-
-                  <span
-                    className="row-resize-handle"
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      handleRowResizeStart(rowIndex, event.clientY);
-                    }}
-                  />
-                </th>
-
-                {row.map((cell, colIndex) => (
-                  <SpreadsheetCell
-                    key={colIndex}
-                    cell={cell}
-                    row={rowIndex}
-                    col={colIndex}
-                    width={columnWidths[colIndex] ?? DEFAULT_COLUMN_WIDTH}
-                    height={rowHeights[rowIndex] ?? DEFAULT_ROW_HEIGHT}
-                    isSelected={selectedCell.row === rowIndex && selectedCell.col === colIndex}
-                    isInSelectedRange={isCellInSelectedRange(rowIndex, colIndex)}
-                    isEditing={
-                      editingCell !== null &&
-                      editingCell.row === rowIndex &&
-                      editingCell.col === colIndex
-                    }
-                    onSelect={handleSelect}
-                    onChange={handleCellChange}
-                    onStartEdit={handleStartEdit}
-                    onStopEdit={handleStopEdit}
-                    onOpenContextMenu={handleOpenContextMenu}
-                  />
-                ))}
+          {topPadding > 0 && (
+            <tr className="virtual-spacer-row">
+              <td
+              className="virtual-spacer-cell"
+              colSpan={columnNames.length + 1}
+              style={{
+                height: topPadding,
+              }}
+              />
               </tr>
-            ))}
+            )}
+
+            {visibleTableRows.map((row, rowOffset) => {
+              const rowIndex = visibleRows.start + rowOffset;
+
+              return (
+                <tr key={rowIndex}>
+                  <th
+                    className="row-header"
+                    style={{
+                      height: rowHeights[rowIndex],
+                    }}
+                  >
+                    {rowIndex + 1}
+
+                    <span
+                      className="row-resize-handle"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        handleRowResizeStart(rowIndex, event.clientY);
+                      }}
+                    />
+                  </th>
+
+                  {row.map((cell, colIndex) => (
+                    <SpreadsheetCell
+                      key={colIndex}
+                      cell={cell}
+                      row={rowIndex}
+                      col={colIndex}
+                      width={columnWidths[colIndex] ?? DEFAULT_COLUMN_WIDTH}
+                      height={rowHeights[rowIndex] ?? DEFAULT_ROW_HEIGHT}
+                      isSelected={selectedCell.row === rowIndex && selectedCell.col === colIndex}
+                      isInSelectedRange={isCellInSelectedRange(rowIndex, colIndex)}
+                      isEditing={
+                        editingCell !== null &&
+                        editingCell.row === rowIndex &&
+                        editingCell.col === colIndex
+                      }
+                      onSelect={handleSelect}
+                      onChange={handleCellChange}
+                      onStartEdit={handleStartEdit}
+                      onStopEdit={handleStopEdit}
+                      onOpenContextMenu={handleOpenContextMenu}
+                    />
+                  ))}
+                </tr>
+              );
+            })}
+
+            {bottomPadding > 0 && (
+              <tr>
+                <td
+                  colSpan={columnNames.length + 1}
+                  style={{
+                    height: bottomPadding,
+                    padding: 0,
+                    border: 'none',
+                  }}
+                />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
