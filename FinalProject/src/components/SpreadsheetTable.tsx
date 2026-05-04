@@ -312,15 +312,20 @@ function SpreadsheetTable() {
       return;
     }
 
+    const currentResizingColumn = resizingColumn;
+
     function handleMouseMove(event: globalThis.MouseEvent) {
-      const difference = event.clientX - resizingColumn.startX;
-      const newWidth = Math.max(MIN_COLUMN_WIDTH, resizingColumn.startWidth + difference);
+      const difference = event.clientX - currentResizingColumn.startX;
+      const newWidth = Math.max(
+        MIN_COLUMN_WIDTH,
+        currentResizingColumn.startWidth + difference,
+      );
 
       setColumnWidths((oldWidths) => {
         const newWidths: number[] = [];
 
         for (let i = 0; i < oldWidths.length; i++) {
-          if (i === resizingColumn.col) {
+          if (i === currentResizingColumn.col) {
             newWidths.push(newWidth);
           } else {
             newWidths.push(oldWidths[i]);
