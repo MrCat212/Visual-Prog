@@ -7,6 +7,7 @@ type SpreadsheetCellProps = {
   cell: Cell;
   row: number;
   col: number;
+  width: number;
   isSelected: boolean;
   isInSelectedRange: boolean;
   isEditing: boolean;
@@ -21,6 +22,7 @@ function SpreadsheetCell({
   cell,
   row,
   col,
+  width,
   isSelected,
   isInSelectedRange,
   isEditing,
@@ -91,6 +93,10 @@ function SpreadsheetCell({
   return (
     <td
       className={cellClassName}
+      style={{
+        width,
+        minWidth: width,
+      }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}

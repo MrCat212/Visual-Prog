@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 
 import FormulaBar from '@/components/FormulaBar';
@@ -9,6 +9,8 @@ import { createEmptyCell, createTable, getColumnName } from '@/utils/tableUtils'
 
 const ROWS = 100;
 const COLS = 26;
+const DEFAULT_COLUMN_WIDTH = 100;
+const MIN_COLUMN_WIDTH = 50;
 
 type ContextMenuState = {
   row: number;
@@ -17,10 +19,26 @@ type ContextMenuState = {
   y: number;
 };
 
+type ResizingColumn = {
+  col: number;
+  startX: number;
+  startWidth: number;
+};
+
 function SpreadsheetTable() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const [table, setTable] = useState<TableData>(() => createTable(ROWS, COLS));
+
+  const [columnWidths, setColumnWidths] = useState<number[]>(() => {
+    const widths: number[] = [];
+
+    for (let i = 0; i < COLS; i++) {
+      widths.push(DEFAULT_COLUMN_WIDTH);
+    }
+
+    return widths;
+  });
 
   const [selectedCell, setSelectedCell] = useState<SelectedCell>({
     row: 0,
@@ -32,6 +50,8 @@ function SpreadsheetTable() {
   const [editingCell, setEditingCell] = useState<SelectedCell | null>(null);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
 
   const columnNames = useMemo(() => {
     const names: string[] = [];
@@ -204,6 +224,20 @@ function SpreadsheetTable() {
       return recalculateTable(newTable);
     });
 
+    setColumnWidths((oldWidths) => {
+      const newWidths: number[] = [];
+
+      for (let i = 0; i < oldWidths.length; i++) {
+        newWidths.push(oldWidths[i]);
+
+        if (i === contextMenu.col) {
+          newWidths.push(DEFAULT_COLUMN_WIDTH);
+        }
+      }
+
+      return newWidths;
+    });
+
     setContextMenu(null);
   }, [contextMenu]);
 
@@ -236,6 +270,22 @@ function SpreadsheetTable() {
       return recalculateTable(newTable);
     });
 
+    setColumnWidths((oldWidths) => {
+      if (oldWidths.length <= 1) {
+        return oldWidths;
+      }
+
+      const newWidths: number[] = [];
+
+      for (let i = 0; i < oldWidths.length; i++) {
+        if (i !== contextMenu.col) {
+          newWidths.push(oldWidths[i]);
+        }
+      }
+
+      return newWidths;
+    });
+
     setSelectedCell({
       row: contextMenu.row,
       col: Math.max(0, contextMenu.col - 1),
@@ -243,6 +293,56 @@ function SpreadsheetTable() {
 
     setContextMenu(null);
   }, [contextMenu]);
+
+  const handleColumnResizeStart = useCallback(
+    (col: number, startX: number) => {
+      const startWidth = columnWidths[col] ?? DEFAULT_COLUMN_WIDTH;
+
+      setResizingColumn({
+        col,
+        startX,
+        startWidth,
+      });
+    },
+    [columnWidths],
+  );
+
+  useEffect(() => {
+    if (resizingColumn === null) {
+      return;
+    }
+
+    function handleMouseMove(event: globalThis.MouseEvent) {
+      const difference = event.clientX - resizingColumn.startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, resizingColumn.startWidth + difference);
+
+      setColumnWidths((oldWidths) => {
+        const newWidths: number[] = [];
+
+        for (let i = 0; i < oldWidths.length; i++) {
+          if (i === resizingColumn.col) {
+            newWidths.push(newWidth);
+          } else {
+            newWidths.push(oldWidths[i]);
+          }
+        }
+
+        return newWidths;
+      });
+    }
+
+    function handleMouseUp() {
+      setResizingColumn(null);
+    }
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingColumn]);
 
   const handleTableKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -297,9 +397,24 @@ function SpreadsheetTable() {
             <tr>
               <th className="corner-cell"></th>
 
-              {columnNames.map((name) => (
-                <th key={name} className="column-header">
+              {columnNames.map((name, colIndex) => (
+                <th
+                  key={name}
+                  className="column-header"
+                  style={{
+                    width: columnWidths[colIndex],
+                    minWidth: columnWidths[colIndex],
+                  }}
+                >
                   {name}
+
+                  <span
+                    className="column-resize-handle"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      handleColumnResizeStart(colIndex, event.clientX);
+                    }}
+                  />
                 </th>
               ))}
             </tr>
@@ -316,6 +431,7 @@ function SpreadsheetTable() {
                     cell={cell}
                     row={rowIndex}
                     col={colIndex}
+                    width={columnWidths[colIndex] ?? DEFAULT_COLUMN_WIDTH}
                     isSelected={selectedCell.row === rowIndex && selectedCell.col === colIndex}
                     isInSelectedRange={isCellInSelectedRange(rowIndex, colIndex)}
                     isEditing={

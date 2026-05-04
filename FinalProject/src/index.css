@@ -134,3 +134,18 @@ input {
 .context-menu button:hover {
   background-color: #f1f1f1;
 }
+
+.column-header {
+  position: relative;
+  min-width: 100px;
+}
+
+.column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+}
