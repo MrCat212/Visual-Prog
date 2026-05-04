@@ -94,6 +94,42 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
   const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
   const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
 
+  useEffect(() => {
+    if (initialTable === undefined) {
+      return;
+    }
+  
+    setTable(initialTable);
+  
+    const rowsCount = initialTable.length;
+    const colsCount = initialTable[0]?.length ?? COLS;
+  
+    const newColumnWidths: number[] = [];
+  
+    for (let i = 0; i < colsCount; i++) {
+      newColumnWidths.push(DEFAULT_COLUMN_WIDTH);
+    }
+  
+    const newRowHeights: number[] = [];
+  
+    for (let i = 0; i < rowsCount; i++) {
+      newRowHeights.push(DEFAULT_ROW_HEIGHT);
+    }
+  
+    setColumnWidths(newColumnWidths);
+    setRowHeights(newRowHeights);
+  
+    setSelectedCell({
+      row: 0,
+      col: 0,
+    });
+  
+    setSelectedRange(null);
+    setEditingCell(null);
+    setContextMenu(null);
+    setScrollTop(0);
+  }, [initialTable]);
+  
   const columnCount = table[0]?.length ?? 0;
 
   const columnNames = useMemo(() => {
