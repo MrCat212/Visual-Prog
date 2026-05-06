@@ -25,6 +25,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
   const [table, setTable] = useState<TableData | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [csvColumnNames, setCsvColumnNames] = useState<string[]>([]);
 
   useEffect(() => {
     const foundDocument = getDocumentById(documentId, mockUser.id);
@@ -153,9 +154,24 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         alert('CSV файл пустой');
         return;
       }
-
+      
+      const firstLine = result.split('\n')[0];
+      const importedColumnNames = firstLine.split(',');
+      
+      const preparedColumnNames: string[] = [];
+      
+      for (let i = 0; i < importedColumnNames.length; i++) {
+        const name = importedColumnNames[i].trim();
+      
+        if (name !== '') {
+          preparedColumnNames.push(name);
+        }
+      }
+      
+      setCsvColumnNames(preparedColumnNames);
       setTable(importedTable);
       setHasUnsavedChanges(true);
+      
     };
 
     reader.readAsText(file);
@@ -232,8 +248,13 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
           </button>
         </div>
       </div>
+      {csvColumnNames.length > 0 && (
+        <div className="csv-columns-info">
+          <strong>Колонки из CSV:</strong> {csvColumnNames.join(', ')}
+          </div>
+)}
 
-      <SpreadsheetTable initialTable={table} onTableChange={handleTableChange} />
+<SpreadsheetTable initialTable={table} onTableChange={handleTableChange} />
     </div>
   );
 }
