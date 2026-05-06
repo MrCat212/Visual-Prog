@@ -310,3 +310,75 @@ input {
 .import-button input {
   display: none;
 }
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dashboard-header button {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.rename-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rename-form input {
+  padding: 7px;
+  border: 1px solid #bdbdbd;
+}
+
+.rename-form button {
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 35%);
+}
+
+.modal-window {
+  width: 360px;
+  padding: 18px;
+  background-color: white;
+  border: 1px solid #cfcfcf;
+}
+
+.modal-window h2 {
+  margin-top: 0;
+}
+
+.modal-window label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.modal-window input {
+  padding: 8px;
+  border: 1px solid #bdbdbd;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-actions button {
+  padding: 8px 12px;
+  cursor: pointer;
+}

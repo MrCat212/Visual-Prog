@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import { mockUser } from '@/services/mockUser';
 import {
   createDocument,
   deleteDocument,
@@ -8,17 +7,23 @@ import {
   getUserDocuments,
   renameDocument,
 } from '@/services/documentService';
+import { mockUser } from '@/services/mockUser';
 import type { SpreadsheetDocument } from '@/types/document';
 
 type DashboardPageProps = {
-    onOpenDocument: (documentId: string) => void;
-  };
+  onOpenDocument: (documentId: string) => void;
+};
 
-  function DashboardPage({ onOpenDocument }: DashboardPageProps) {
+function DashboardPage({ onOpenDocument }: DashboardPageProps) {
   const [documents, setDocuments] = useState<SpreadsheetDocument[]>([]);
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newDocumentTitle, setNewDocumentTitle] = useState('');
   const [newDocumentRows, setNewDocumentRows] = useState(100);
   const [newDocumentCols, setNewDocumentCols] = useState(26);
+
+  const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   useEffect(() => {
     loadDocuments();
@@ -27,6 +32,17 @@ type DashboardPageProps = {
   function loadDocuments() {
     const userDocuments = getUserDocuments(mockUser.id);
     setDocuments(userDocuments);
+  }
+
+  function openCreateModal() {
+    setNewDocumentTitle('');
+    setNewDocumentRows(100);
+    setNewDocumentCols(26);
+    setIsCreateModalOpen(true);
+  }
+
+  function closeCreateModal() {
+    setIsCreateModalOpen(false);
   }
 
   function handleCreateDocument() {
@@ -48,28 +64,31 @@ type DashboardPageProps = {
       cols: newDocumentCols,
     });
 
-    setNewDocumentTitle('');
-    setNewDocumentRows(100);
-    setNewDocumentCols(26);
-
+    closeCreateModal();
     loadDocuments();
   }
 
-  function handleRenameDocument(document: SpreadsheetDocument) {
-    const newTitle = prompt('Введите новое название', document.title);
+  function startRenameDocument(document: SpreadsheetDocument) {
+    setEditingDocumentId(document.id);
+    setEditingTitle(document.title);
+  }
 
-    if (newTitle === null) {
-      return;
-    }
+  function cancelRenameDocument() {
+    setEditingDocumentId(null);
+    setEditingTitle('');
+  }
 
-    const preparedTitle = newTitle.trim();
+  function saveRenameDocument(document: SpreadsheetDocument) {
+    const title = editingTitle.trim();
 
-    if (preparedTitle === '') {
+    if (title === '') {
       alert('Название не может быть пустым');
       return;
     }
 
-    renameDocument(document.id, mockUser.id, preparedTitle);
+    renameDocument(document.id, mockUser.id, title);
+    setEditingDocumentId(null);
+    setEditingTitle('');
     loadDocuments();
   }
 
@@ -102,36 +121,10 @@ type DashboardPageProps = {
             Пользователь: {mockUser.name} ({mockUser.email})
           </p>
         </div>
-      </div>
 
-      <div className="create-document-block">
-        <h2>Создать документ</h2>
-
-        <div className="create-document-form">
-          <input
-            value={newDocumentTitle}
-            placeholder="Название документа"
-            onChange={(event) => setNewDocumentTitle(event.target.value)}
-          />
-
-          <input
-            type="number"
-            value={newDocumentRows}
-            min={1}
-            onChange={(event) => setNewDocumentRows(Number(event.target.value))}
-          />
-
-          <input
-            type="number"
-            value={newDocumentCols}
-            min={1}
-            onChange={(event) => setNewDocumentCols(Number(event.target.value))}
-          />
-
-          <button type="button" onClick={handleCreateDocument}>
-            Создать
-          </button>
-        </div>
+        <button type="button" onClick={openCreateModal}>
+          Создать документ
+        </button>
       </div>
 
       <div className="documents-list">
@@ -142,7 +135,26 @@ type DashboardPageProps = {
             <div className="document-card" key={document.id}>
               <div className="document-card-header">
                 <div>
-                  <h2>{document.title}</h2>
+                  {editingDocumentId === document.id ? (
+                    <div className="rename-form">
+                      <input
+                        value={editingTitle}
+                        onChange={(event) => setEditingTitle(event.target.value)}
+                      />
+
+                      <button type="button" onClick={() => saveRenameDocument(document)}>
+                        Сохранить
+                      </button>
+
+
+                      <button type="button" onClick={cancelRenameDocument}>
+                        Отмена
+                      </button>
+                    </div>
+                  ) : (
+                    <h2>{document.title}</h2>
+                  )}
+
                   <p>Создан: {formatDate(document.createdAt)}</p>
                   <p>Изменён: {formatDate(document.updatedAt)}</p>
                   <p>
@@ -151,11 +163,11 @@ type DashboardPageProps = {
                 </div>
 
                 <div className="document-actions">
-                <button type="button" onClick={() => onOpenDocument(document.id)}>
+                  <button type="button" onClick={() => onOpenDocument(document.id)}>
                     Открыть
-                </button>
+                  </button>
 
-                  <button type="button" onClick={() => handleRenameDocument(document)}>
+                  <button type="button" onClick={() => startRenameDocument(document)}>
                     Переименовать
                   </button>
 
@@ -184,6 +196,53 @@ type DashboardPageProps = {
           ))
         )}
       </div>
+      
+      {isCreateModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-window">
+            <h2>Создать документ</h2>
+
+            <label>
+              Название
+              <input
+                value={newDocumentTitle}
+                placeholder="Например: Таблица 1"
+                onChange={(event) => setNewDocumentTitle(event.target.value)}
+              />
+            </label>
+
+            <label>
+              Количество строк
+              <input
+                type="number"
+                value={newDocumentRows}
+                min={1}
+                onChange={(event) => setNewDocumentRows(Number(event.target.value))}
+              />
+            </label>
+
+            <label>
+              Количество столбцов
+              <input
+                type="number"
+                value={newDocumentCols}
+                min={1}
+                onChange={(event) => setNewDocumentCols(Number(event.target.value))}
+              />
+            </label>
+
+            <div className="modal-actions">
+              <button type="button" onClick={handleCreateDocument}>
+                Создать
+              </button>
+
+              <button type="button" onClick={closeCreateModal}>
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
