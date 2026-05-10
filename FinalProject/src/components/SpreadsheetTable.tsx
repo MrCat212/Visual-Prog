@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent, UIEvent } from 'react';
 
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import FormulaBar from '@/components/FormulaBar';
 import SpreadsheetCell from '@/components/SpreadsheetCell';
-import type { Cell, SelectedCell, SelectedRange, TableData } from '@/types/spreadsheet';
-import { recalculateTable } from '@/utils/formulaUtils';
-import { createEmptyCell, createTable, getColumnName } from '@/utils/tableUtils';
+import {
+  addColumn,
+  addRow,
+  changeCell,
+  deleteColumn,
+  deleteRow,
+  redo,
+  selectCell,
+  selectRange,
+  undo,
+} from '@/features/spreadsheet/spreadsheetSlice';
+import type { SelectedCell } from '@/types/spreadsheet';
+import { getColumnName } from '@/utils/tableUtils';
 
 const ROWS = 1000;
 const COLS = 26;
@@ -40,31 +51,21 @@ type VisibleRows = {
   end: number;
 };
 
-type SpreadsheetTableProps = {
-  initialTable?: TableData;
-  onTableChange?: (table: TableData) => void;
-};
+function SpreadsheetTable() {
+  const dispatch = useAppDispatch();
 
-function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps) {
+  const table = useAppSelector((state) => state.spreadsheet.table);
+  const selectedCell = useAppSelector((state) => state.spreadsheet.selectedCell);
+  const selectedRange = useAppSelector((state) => state.spreadsheet.selectedRange);
+
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-
-  const [table, setTable] = useState<TableData>(() => {
-    if (initialTable !== undefined) {
-      return initialTable;
-    }
-
-    return createTable(ROWS, COLS);
-  });
 
   const [scrollTop, setScrollTop] = useState(0);
 
   const [columnWidths, setColumnWidths] = useState<number[]>(() => {
-    const firstRow = initialTable?.[0];
-    const colsCount = firstRow?.length ?? COLS;
-
     const widths: number[] = [];
 
-    for (let i = 0; i < colsCount; i++) {
+    for (let i = 0; i < COLS; i++) {
       widths.push(DEFAULT_COLUMN_WIDTH);
     }
 
@@ -72,63 +73,94 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
   });
 
   const [rowHeights, setRowHeights] = useState<number[]>(() => {
-    const rowsCount = initialTable?.length ?? ROWS;
-
     const heights: number[] = [];
 
-    for (let i = 0; i < rowsCount; i++) {
+    for (let i = 0; i < ROWS; i++) {
       heights.push(DEFAULT_ROW_HEIGHT);
     }
 
     return heights;
   });
 
-  const [selectedCell, setSelectedCell] = useState<SelectedCell>({
-    row: 0,
-    col: 0,
-  });
-
-  const [selectedRange, setSelectedRange] = useState<SelectedRange | null>(null);
   const [editingCell, setEditingCell] = useState<SelectedCell | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
   const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
 
   useEffect(() => {
-    if (initialTable === undefined) {
-      return;
-    }
-  
-    setTable(initialTable);
-  
-    const rowsCount = initialTable.length;
-    const colsCount = initialTable[0]?.length ?? COLS;
-  
-    const newColumnWidths: number[] = [];
-  
-    for (let i = 0; i < colsCount; i++) {
-      newColumnWidths.push(DEFAULT_COLUMN_WIDTH);
-    }
-  
-    const newRowHeights: number[] = [];
-  
-    for (let i = 0; i < rowsCount; i++) {
-      newRowHeights.push(DEFAULT_ROW_HEIGHT);
-    }
-  
-    setColumnWidths(newColumnWidths);
-    setRowHeights(newRowHeights);
-  
-    setSelectedCell({
-      row: 0,
-      col: 0,
+    const columnCount = table[0]?.length ?? 0;
+
+    setColumnWidths((oldWidths) => {
+      if (oldWidths.length === columnCount) {
+        return oldWidths;
+      }
+
+      const newWidths: number[] = [];
+
+      for (let i = 0; i < columnCount; i++) {
+        newWidths.push(oldWidths[i] ?? DEFAULT_COLUMN_WIDTH);
+      }
+
+      return newWidths;
     });
+
+    setRowHeights((oldHeights) => {
+      if (oldHeights.length === table.length) {
+        return oldHeights;
+      }
+
+      const newHeights: number[] = [];
+
+      for (let i = 0; i < table.length; i++) {
+        newHeights.push(oldHeights[i] ?? DEFAULT_ROW_HEIGHT);
+      }
+
+      return newHeights;
+    });
+  }, [table]);
+
+  useEffect(() => {
+    function isCtrlOrMetaPressed(event: globalThis.KeyboardEvent): boolean {
+      return event.ctrlKey || event.metaKey;
+    }
   
-    setSelectedRange(null);
-    setEditingCell(null);
-    setContextMenu(null);
-    setScrollTop(0);
-  }, [initialTable]);
+    function isZKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'z' || event.code === 'KeyZ';
+    }
+  
+    function isYKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'y' || event.code === 'KeyY';
+    }
+  
+    function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
+      if (editingCell !== null) {
+        return;
+      }
+  
+      if (isCtrlOrMetaPressed(event) && event.shiftKey && isZKey(event)) {
+        event.preventDefault();
+        dispatch(redo());
+        return;
+      }
+  
+      if (isCtrlOrMetaPressed(event) && isZKey(event)) {
+        event.preventDefault();
+        dispatch(undo());
+        return;
+      }
+  
+      if (isCtrlOrMetaPressed(event) && isYKey(event)) {
+        event.preventDefault();
+        dispatch(redo());
+      }
+    }
+  
+    window.addEventListener('keydown', handleWindowKeyDown, true);
+  
+    return () => {
+      window.removeEventListener('keydown', handleWindowKeyDown, true);
+    };
+  }, [dispatch, editingCell]);
   
   const columnCount = table[0]?.length ?? 0;
 
@@ -144,6 +176,7 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
 
   const rowOffsets = useMemo(() => {
     const offsets: number[] = [0];
+
 
     for (let i = 0; i < rowHeights.length; i++) {
       offsets.push(offsets[i] + rowHeights[i]);
@@ -180,7 +213,7 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
   const topPadding = rowOffsets[visibleRows.start];
   const bottomPadding = totalRowsHeight - rowOffsets[visibleRows.end];
 
-  const activeCell = table[selectedCell.row]?.[selectedCell.col] ?? createEmptyCell();
+  const activeCell = table[selectedCell.row]?.[selectedCell.col];
 
   const visibleTableRows = useMemo(() => {
     return table.slice(visibleRows.start, visibleRows.end);
@@ -193,26 +226,28 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
   const handleSelect = useCallback(
     (row: number, col: number, withShift: boolean) => {
       if (withShift) {
-        setSelectedRange({
-          start: selectedCell,
-          end: {
+        dispatch(
+          selectRange({
+            start: selectedCell,
+            end: {
+              row,
+              col,
+            },
+          }),
+        );
+      } else {
+        dispatch(
+          selectCell({
             row,
             col,
-          },
-        });
-      } else {
-        setSelectedRange(null);
+          }),
+        );
       }
-
-      setSelectedCell({
-        row,
-        col,
-      });
 
       setContextMenu(null);
       wrapperRef.current?.focus();
     },
-    [selectedCell],
+    [dispatch, selectedCell],
   );
 
   const handleStartEdit = useCallback((row: number, col: number) => {
@@ -241,37 +276,15 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
 
   const handleCellChange = useCallback(
     (row: number, col: number, value: string) => {
-      setTable((oldTable) => {
-        const newTable: TableData = [];
-
-        for (let i = 0; i < oldTable.length; i++) {
-          const newRow: Cell[] = [];
-
-          for (let j = 0; j < oldTable[i].length; j++) {
-            if (i === row && j === col) {
-              newRow.push({
-                value,
-                result: value,
-                type: 'text',
-              });
-            } else {
-              newRow.push(oldTable[i][j]);
-            }
-          }
-
-          newTable.push(newRow);
-        }
-
-        const recalculatedTable = recalculateTable(newTable);
-
-        if (onTableChange !== undefined) {
-          onTableChange(recalculatedTable);
-        }
-
-        return recalculatedTable;
-      });
+      dispatch(
+        changeCell({
+          row,
+          col,
+          value,
+        }),
+      );
     },
-    [onTableChange],
+    [dispatch],
   );
 
   const handleAddRow = useCallback(() => {
@@ -279,207 +292,56 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
       return;
     }
 
-    setTable((oldTable) => {
-      const newTable: TableData = [];
-      const colsCount = oldTable[0]?.length ?? COLS;
-
-      for (let i = 0; i < oldTable.length; i++) {
-        newTable.push(oldTable[i]);
-
-        if (i === contextMenu.row) {
-          const newRow: Cell[] = [];
-
-          for (let j = 0; j < colsCount; j++) {
-            newRow.push(createEmptyCell());
-          }
-
-          newTable.push(newRow);
-        }
-      }
-
-      const recalculatedTable = recalculateTable(newTable);
-
-      if (onTableChange !== undefined) {
-        onTableChange(recalculatedTable);
-      }
-
-      return recalculatedTable;
-    });
-
-    setRowHeights((oldHeights) => {
-      const newHeights: number[] = [];
-
-      for (let i = 0; i < oldHeights.length; i++) {
-        newHeights.push(oldHeights[i]);
-
-        if (i === contextMenu.row) {
-          newHeights.push(DEFAULT_ROW_HEIGHT);
-        }
-      }
-
-      return newHeights;
-    });
+    dispatch(
+      addRow({
+        row: contextMenu.row,
+      }),
+    );
 
     setContextMenu(null);
-  }, [contextMenu, onTableChange]);
+  }, [contextMenu, dispatch]);
 
   const handleDeleteRow = useCallback(() => {
     if (contextMenu === null) {
       return;
     }
 
-    setTable((oldTable) => {
-      if (oldTable.length <= 1) {
-        return oldTable;
-      }
-
-      const newTable: TableData = [];
-
-      for (let i = 0; i < oldTable.length; i++) {
-        if (i !== contextMenu.row) {
-          newTable.push(oldTable[i]);
-        }
-      }
-
-      const recalculatedTable = recalculateTable(newTable);
-
-      if (onTableChange !== undefined) {
-        onTableChange(recalculatedTable);
-      }
-
-      return recalculatedTable;
-    });
-
-    setRowHeights((oldHeights) => {
-      if (oldHeights.length <= 1) {
-        return oldHeights;
-      }
-
-      const newHeights: number[] = [];
-
-      for (let i = 0; i < oldHeights.length; i++) {
-        if (i !== contextMenu.row) {
-          newHeights.push(oldHeights[i]);
-        }
-      }
-
-      return newHeights;
-    });
-
-    setSelectedCell({
-      row: Math.max(0, contextMenu.row - 1),
-      col: contextMenu.col,
-    });
+    dispatch(
+      deleteRow({
+        row: contextMenu.row,
+      }),
+    );
 
     setContextMenu(null);
-  }, [contextMenu, onTableChange]);
+  }, [contextMenu, dispatch]);
 
   const handleAddColumn = useCallback(() => {
     if (contextMenu === null) {
       return;
     }
 
-    setTable((oldTable) => {
-      const newTable: TableData = [];
-
-      for (let i = 0; i < oldTable.length; i++) {
-        const newRow: Cell[] = [];
-
-        for (let j = 0; j < oldTable[i].length; j++) {
-          newRow.push(oldTable[i][j]);
-
-          if (j === contextMenu.col) {
-            newRow.push(createEmptyCell());
-          }
-        }
-
-        newTable.push(newRow);
-      }
-
-      const recalculatedTable = recalculateTable(newTable);
-
-      if (onTableChange !== undefined) {
-        onTableChange(recalculatedTable);
-      }
-
-      return recalculatedTable;
-    });
-
-    setColumnWidths((oldWidths) => {
-      const newWidths: number[] = [];
-
-      for (let i = 0; i < oldWidths.length; i++) {
-        newWidths.push(oldWidths[i]);
-
-        if (i === contextMenu.col) {
-          newWidths.push(DEFAULT_COLUMN_WIDTH);
-        }
-      }
-
-      return newWidths;
-    });
+    dispatch(
+      addColumn({
+        col: contextMenu.col,
+      }),
+    );
 
     setContextMenu(null);
-  }, [contextMenu, onTableChange]);
+  }, [contextMenu, dispatch]);
 
   const handleDeleteColumn = useCallback(() => {
     if (contextMenu === null) {
       return;
     }
 
-    setTable((oldTable) => {
-      const colsCount = oldTable[0]?.length ?? 0;
-
-      if (colsCount <= 1) {
-        return oldTable;
-      }
-
-      const newTable: TableData = [];
-
-      for (let i = 0; i < oldTable.length; i++) {
-        const newRow: Cell[] = [];
-
-        for (let j = 0; j < oldTable[i].length; j++) {
-          if (j !== contextMenu.col) {
-            newRow.push(oldTable[i][j]);
-          }
-        }
-
-        newTable.push(newRow);
-      }
-
-      const recalculatedTable = recalculateTable(newTable);
-
-      if (onTableChange !== undefined) {
-        onTableChange(recalculatedTable);
-      }
-
-      return recalculatedTable;
-    });
-
-    setColumnWidths((oldWidths) => {
-      if (oldWidths.length <= 1) {
-        return oldWidths;
-      }
-
-      const newWidths: number[] = [];
-
-      for (let i = 0; i < oldWidths.length; i++) {
-        if (i !== contextMenu.col) {
-          newWidths.push(oldWidths[i]);
-        }
-      }
-
-      return newWidths;
-    });
-
-    setSelectedCell({
-      row: contextMenu.row,
-      col: Math.max(0, contextMenu.col - 1),
-    });
+    dispatch(
+      deleteColumn({
+        col: contextMenu.col,
+      }),
+    );
 
     setContextMenu(null);
-  }, [contextMenu, onTableChange]);
+  }, [contextMenu, dispatch]);
 
   const handleColumnResizeStart = useCallback(
     (col: number, startX: number) => {
@@ -513,6 +375,7 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
     }
 
     const currentResizingColumn = resizingColumn;
+
 
     function handleMouseMove(event: globalThis.MouseEvent) {
       const difference = event.clientX - currentResizingColumn.startX;
@@ -633,7 +496,7 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
       onKeyDown={handleTableKeyDown}
       onClick={handleWrapperClick}
     >
-      <FormulaBar value={activeCell.value} />
+      <FormulaBar value={activeCell?.value ?? ''} />
 
       <div className="table-scroll" onScroll={handleScroll}>
         <table className="spreadsheet-table">
@@ -651,6 +514,7 @@ function SpreadsheetTable({ initialTable, onTableChange }: SpreadsheetTableProps
                   }}
                 >
                   {name}
+
 
                   <span
                     className="column-resize-handle"

@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import SpreadsheetTable from '@/components/SpreadsheetTable';
+import { setTable as setSpreadsheetTable } from '@/features/spreadsheet/spreadsheetSlice';
 import { getDocumentById, updateDocumentData } from '@/services/documentService';
 import { mockUser } from '@/services/mockUser';
 import type { SpreadsheetDocument } from '@/types/document';
-import type { TableData } from '@/types/spreadsheet';
 import {
   csvToTable,
   downloadTextFile,
@@ -21,8 +22,13 @@ type SpreadsheetPageProps = {
 type SaveStatus = 'saved' | 'saving' | 'error';
 
 function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
+  const dispatch = useAppDispatch();
+  const table = useAppSelector((state) => state.spreadsheet.table);
+
+  const skipNextTableChangeRef = useRef(false);
+  const isDocumentLoadedRef = useRef(false);
+
   const [document, setDocument] = useState<SpreadsheetDocument | null>(null);
-  const [table, setTable] = useState<TableData | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [csvColumnNames, setCsvColumnNames] = useState<string[]>([]);
@@ -31,14 +37,35 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     const foundDocument = getDocumentById(documentId, mockUser.id);
 
     setDocument(foundDocument);
+    setSaveStatus('saved');
+    setHasUnsavedChanges(false);
+    setCsvColumnNames([]);
+
+    isDocumentLoadedRef.current = false;
 
     if (foundDocument !== null) {
-      setTable(foundDocument.data);
+      skipNextTableChangeRef.current = true;
+      dispatch(setSpreadsheetTable(foundDocument.data));
+      isDocumentLoadedRef.current = true;
     }
-  }, [documentId]);
+  }, [dispatch, documentId]);
+
+  useEffect(() => {
+    if (!isDocumentLoadedRef.current) {
+      return;
+    }
+
+    if (skipNextTableChangeRef.current) {
+      skipNextTableChangeRef.current = false;
+      return;
+    }
+
+    setHasUnsavedChanges(true);
+    setSaveStatus('saving');
+  }, [table]);
 
   const saveDocumentNow = useCallback(() => {
-    if (table === null) {
+    if (document === null) {
       return;
     }
 
@@ -58,14 +85,12 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     } catch {
       setSaveStatus('error');
     }
-  }, [documentId, table]);
+  }, [document, documentId, table]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
       return;
     }
-
-    setSaveStatus('saving');
 
     const timerId = window.setTimeout(() => {
       saveDocumentNow();
@@ -108,13 +133,8 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     };
   }, [hasUnsavedChanges]);
 
-  function handleTableChange(newTable: TableData) {
-    setTable(newTable);
-    setHasUnsavedChanges(true);
-  }
-
   function handleExportCsv() {
-    if (document === null || table === null) {
+    if (document === null) {
       return;
     }
 
@@ -123,7 +143,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
   }
 
   function handleExportJson() {
-    if (document === null || table === null) {
+    if (document === null) {
       return;
     }
 
@@ -133,6 +153,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
 
   function handleImportCsv(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+
 
     if (file === undefined) {
       return;
@@ -154,24 +175,21 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         alert('CSV файл пустой');
         return;
       }
-      
+
       const firstLine = result.split('\n')[0];
       const importedColumnNames = firstLine.split(',');
-      
       const preparedColumnNames: string[] = [];
-      
+
       for (let i = 0; i < importedColumnNames.length; i++) {
         const name = importedColumnNames[i].trim();
-      
+
         if (name !== '') {
           preparedColumnNames.push(name);
         }
       }
-      
+
       setCsvColumnNames(preparedColumnNames);
-      setTable(importedTable);
-      setHasUnsavedChanges(true);
-      
+      dispatch(setSpreadsheetTable(importedTable));
     };
 
     reader.readAsText(file);
@@ -202,7 +220,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     onBack();
   }
 
-  if (document === null || table === null) {
+  if (document === null) {
     return (
       <div className="spreadsheet-page">
         <button type="button" onClick={onBack}>
@@ -220,7 +238,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         <div>
           <h1>{document.title}</h1>
           <p>
-            Размер: {document.rows} × {document.cols}
+            Размер: {table.length} × {table[0]?.length ?? 0}
           </p>
           <p className="save-status">{getSaveStatusText()}</p>
         </div>
@@ -248,13 +266,14 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
           </button>
         </div>
       </div>
+
       {csvColumnNames.length > 0 && (
         <div className="csv-columns-info">
           <strong>Колонки из CSV:</strong> {csvColumnNames.join(', ')}
-          </div>
-)}
+        </div>
+      )}
 
-<SpreadsheetTable initialTable={table} onTableChange={handleTableChange} />
+      <SpreadsheetTable />
     </div>
   );
 }
