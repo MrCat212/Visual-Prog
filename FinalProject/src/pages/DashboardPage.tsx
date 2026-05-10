@@ -1,23 +1,29 @@
 import { useEffect, useState } from 'react';
 
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { setActiveDocumentId } from '@/features/documents/documentsSlice';
 import {
-  createDocument,
-  deleteDocument,
-  duplicateDocument,
-  getUserDocuments,
-  renameDocument,
-} from '@/services/documentService';
-import { mockUser } from '@/services/mockUser';
+  createUserDocument,
+  deleteUserDocument,
+  duplicateUserDocument,
+  loadUserDocuments,
+  renameUserDocument,
+} from '@/features/documents/documentsSlice';
+import {
+  closeCreateDocumentModal,
+  openCreateDocumentModal,
+} from '@/features/ui/uiSlice';
 import type { SpreadsheetDocument } from '@/types/document';
 
-type DashboardPageProps = {
-  onOpenDocument: (documentId: string) => void;
-};
+function DashboardPage() {
+  const dispatch = useAppDispatch();
 
-function DashboardPage({ onOpenDocument }: DashboardPageProps) {
-  const [documents, setDocuments] = useState<SpreadsheetDocument[]>([]);
+  const user = useAppSelector((state) => state.auth.user);
+  const documents = useAppSelector((state) => state.documents.documents);
+  const isLoading = useAppSelector((state) => state.documents.isLoading);
+  const error = useAppSelector((state) => state.documents.error);
+  const isCreateModalOpen = useAppSelector((state) => state.ui.isCreateDocumentModalOpen);
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newDocumentTitle, setNewDocumentTitle] = useState('');
   const [newDocumentRows, setNewDocumentRows] = useState(100);
   const [newDocumentCols, setNewDocumentCols] = useState(26);
@@ -26,26 +32,27 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
   const [editingTitle, setEditingTitle] = useState('');
 
   useEffect(() => {
-    loadDocuments();
-  }, []);
+    if (user !== null) {
+      dispatch(loadUserDocuments(user.id));
+    }
+  }, [dispatch, user]);
 
-  function loadDocuments() {
-    const userDocuments = getUserDocuments(mockUser.id);
-    setDocuments(userDocuments);
-  }
-
-  function openCreateModal() {
+  function openModal() {
     setNewDocumentTitle('');
     setNewDocumentRows(100);
     setNewDocumentCols(26);
-    setIsCreateModalOpen(true);
+    dispatch(openCreateDocumentModal());
   }
 
-  function closeCreateModal() {
-    setIsCreateModalOpen(false);
+  function closeModal() {
+    dispatch(closeCreateDocumentModal());
   }
 
   function handleCreateDocument() {
+    if (user === null) {
+      return;
+    }
+
     const title = newDocumentTitle.trim();
 
     if (title === '') {
@@ -58,14 +65,16 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
       return;
     }
 
-    createDocument(mockUser.id, {
-      title,
-      rows: newDocumentRows,
-      cols: newDocumentCols,
-    });
+    dispatch(
+      createUserDocument({
+        userId: user.id,
+        title,
+        rows: newDocumentRows,
+        cols: newDocumentCols,
+      }),
+    );
 
-    closeCreateModal();
-    loadDocuments();
+    closeModal();
   }
 
   function startRenameDocument(document: SpreadsheetDocument) {
@@ -79,6 +88,10 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
   }
 
   function saveRenameDocument(document: SpreadsheetDocument) {
+    if (user === null) {
+      return;
+    }
+
     const title = editingTitle.trim();
 
     if (title === '') {
@@ -86,30 +99,64 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
       return;
     }
 
-    renameDocument(document.id, mockUser.id, title);
+    dispatch(
+      renameUserDocument({
+        documentId: document.id,
+        userId: user.id,
+        title,
+      }),
+    );
+
     setEditingDocumentId(null);
     setEditingTitle('');
-    loadDocuments();
   }
 
   function handleDeleteDocument(document: SpreadsheetDocument) {
+    if (user === null) {
+      return;
+    }
+
     const isConfirmed = confirm(`Удалить документ "${document.title}"?`);
 
     if (!isConfirmed) {
       return;
     }
 
-    deleteDocument(document.id, mockUser.id);
-    loadDocuments();
+    dispatch(
+      deleteUserDocument({
+        documentId: document.id,
+        userId: user.id,
+      }),
+    );
   }
 
   function handleDuplicateDocument(document: SpreadsheetDocument) {
-    duplicateDocument(document.id, mockUser.id);
-    loadDocuments();
+    if (user === null) {
+      return;
+    }
+
+    dispatch(
+      duplicateUserDocument({
+        documentId: document.id,
+        userId: user.id,
+      }),
+    );
+  }
+
+  function handleOpenDocument(documentId: string) {
+    dispatch(setActiveDocumentId(documentId));
   }
 
   function formatDate(date: string): string {
     return new Date(date).toLocaleString('ru-RU');
+  }
+
+  if (user === null) {
+    return (
+      <div className="dashboard-page">
+        <h1>Пользователь не найден</h1>
+      </div>
+    );
   }
 
   return (
@@ -118,14 +165,19 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
         <div>
           <h1>Мои документы</h1>
           <p>
-            Пользователь: {mockUser.name} ({mockUser.email})
+            Пользователь: {user.name} ({user.email})
           </p>
         </div>
 
-        <button type="button" onClick={openCreateModal}>
+
+        <button type="button" onClick={openModal}>
           Создать документ
         </button>
       </div>
+
+      {isLoading && <p>Загрузка документов...</p>}
+
+      {error !== null && <p>{error}</p>}
 
       <div className="documents-list">
         {documents.length === 0 ? (
@@ -146,7 +198,6 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
                         Сохранить
                       </button>
 
-
                       <button type="button" onClick={cancelRenameDocument}>
                         Отмена
                       </button>
@@ -163,7 +214,7 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
                 </div>
 
                 <div className="document-actions">
-                  <button type="button" onClick={() => onOpenDocument(document.id)}>
+                  <button type="button" onClick={() => handleOpenDocument(document.id)}>
                     Открыть
                   </button>
 
@@ -196,7 +247,7 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
           ))
         )}
       </div>
-      
+
       {isCreateModalOpen && (
         <div className="modal-backdrop">
           <div className="modal-window">
@@ -236,7 +287,7 @@ function DashboardPage({ onOpenDocument }: DashboardPageProps) {
                 Создать
               </button>
 
-              <button type="button" onClick={closeCreateModal}>
+              <button type="button" onClick={closeModal}>
                 Отмена
               </button>
             </div>

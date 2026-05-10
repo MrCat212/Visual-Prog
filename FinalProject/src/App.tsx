@@ -1,21 +1,22 @@
-import { useState } from 'react';
-
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { setActiveDocumentId } from '@/features/documents/documentsSlice';
 import DashboardPage from '@/pages/DashboardPage';
 import SpreadsheetPage from '@/pages/SpreadsheetPage';
 
 function App() {
-  const [openedDocumentId, setOpenedDocumentId] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const activeDocumentId = useAppSelector((state) => state.documents.activeDocumentId);
 
-  if (openedDocumentId !== null) {
+  if (activeDocumentId !== null) {
     return (
       <SpreadsheetPage
-        documentId={openedDocumentId}
-        onBack={() => setOpenedDocumentId(null)}
+        documentId={activeDocumentId}
+        onBack={() => dispatch(setActiveDocumentId(null))}
       />
     );
   }
 
-  return <DashboardPage onOpenDocument={setOpenedDocumentId} />;
+  return <DashboardPage />;
 }
 
 export default App;
