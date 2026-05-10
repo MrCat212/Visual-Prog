@@ -4,6 +4,7 @@ import type { ChangeEvent } from 'react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import SpreadsheetTable from '@/components/SpreadsheetTable';
 import { setTable as setSpreadsheetTable } from '@/features/spreadsheet/spreadsheetSlice';
+import { setSaveStatus } from '@/features/ui/uiSlice';
 import { getDocumentById, updateDocumentData } from '@/services/documentService';
 import { mockUser } from '@/services/mockUser';
 import type { SpreadsheetDocument } from '@/types/document';
@@ -19,17 +20,18 @@ type SpreadsheetPageProps = {
   onBack: () => void;
 };
 
-type SaveStatus = 'saved' | 'saving' | 'error';
+const AUTOSAVE_DELAY = 6000;
 
 function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
   const dispatch = useAppDispatch();
+
   const table = useAppSelector((state) => state.spreadsheet.table);
+  const saveStatus = useAppSelector((state) => state.ui.saveStatus);
 
   const skipNextTableChangeRef = useRef(false);
   const isDocumentLoadedRef = useRef(false);
 
   const [document, setDocument] = useState<SpreadsheetDocument | null>(null);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [csvColumnNames, setCsvColumnNames] = useState<string[]>([]);
 
@@ -37,9 +39,9 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     const foundDocument = getDocumentById(documentId, mockUser.id);
 
     setDocument(foundDocument);
-    setSaveStatus('saved');
     setHasUnsavedChanges(false);
     setCsvColumnNames([]);
+    dispatch(setSaveStatus('saved'));
 
     isDocumentLoadedRef.current = false;
 
@@ -61,31 +63,31 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     }
 
     setHasUnsavedChanges(true);
-    setSaveStatus('saving');
-  }, [table]);
+    dispatch(setSaveStatus('saving'));
+  }, [dispatch, table]);
 
   const saveDocumentNow = useCallback(() => {
     if (document === null) {
       return;
     }
 
-    setSaveStatus('saving');
+    dispatch(setSaveStatus('saving'));
 
     try {
       const updatedDocument = updateDocumentData(documentId, mockUser.id, table);
 
       if (updatedDocument === null) {
-        setSaveStatus('error');
+        dispatch(setSaveStatus('error'));
         return;
       }
 
       setDocument(updatedDocument);
-      setSaveStatus('saved');
+      dispatch(setSaveStatus('saved'));
       setHasUnsavedChanges(false);
     } catch {
-      setSaveStatus('error');
+      dispatch(setSaveStatus('error'));
     }
-  }, [document, documentId, table]);
+  }, [dispatch, document, documentId, table]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -94,7 +96,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
 
     const timerId = window.setTimeout(() => {
       saveDocumentNow();
-    }, 6000);
+    }, AUTOSAVE_DELAY);
 
     return () => {
       window.clearTimeout(timerId);
@@ -151,9 +153,9 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     downloadTextFile(document.title + '.json', json, 'application/json');
   }
 
+
   function handleImportCsv(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-
 
     if (file === undefined) {
       return;
