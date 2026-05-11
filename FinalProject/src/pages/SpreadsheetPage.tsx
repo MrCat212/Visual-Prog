@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
 
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import SpreadsheetTable from '@/components/SpreadsheetTable';
-import { setTable as setSpreadsheetTable } from '@/features/spreadsheet/spreadsheetSlice';
+import {
+  replaceTable,
+  setTable as setSpreadsheetTable,
+} from '@/features/spreadsheet/spreadsheetSlice';
 import { setSaveStatus } from '@/features/ui/uiSlice';
 import { getDocumentById, updateDocumentData } from '@/services/documentService';
 import { mockUser } from '@/services/mockUser';
@@ -20,51 +23,26 @@ type SpreadsheetPageProps = {
   onBack: () => void;
 };
 
-const AUTOSAVE_DELAY = 6000;
-
 function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
   const dispatch = useAppDispatch();
 
   const table = useAppSelector((state) => state.spreadsheet.table);
   const saveStatus = useAppSelector((state) => state.ui.saveStatus);
 
-  const skipNextTableChangeRef = useRef(false);
-  const isDocumentLoadedRef = useRef(false);
-
   const [document, setDocument] = useState<SpreadsheetDocument | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [csvColumnNames, setCsvColumnNames] = useState<string[]>([]);
 
   useEffect(() => {
     const foundDocument = getDocumentById(documentId, mockUser.id);
 
     setDocument(foundDocument);
-    setHasUnsavedChanges(false);
     setCsvColumnNames([]);
     dispatch(setSaveStatus('saved'));
 
-    isDocumentLoadedRef.current = false;
-
     if (foundDocument !== null) {
-      skipNextTableChangeRef.current = true;
       dispatch(setSpreadsheetTable(foundDocument.data));
-      isDocumentLoadedRef.current = true;
     }
   }, [dispatch, documentId]);
-
-  useEffect(() => {
-    if (!isDocumentLoadedRef.current) {
-      return;
-    }
-
-    if (skipNextTableChangeRef.current) {
-      skipNextTableChangeRef.current = false;
-      return;
-    }
-
-    setHasUnsavedChanges(true);
-    dispatch(setSaveStatus('saving'));
-  }, [dispatch, table]);
 
   const saveDocumentNow = useCallback(() => {
     if (document === null) {
@@ -83,25 +61,10 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
 
       setDocument(updatedDocument);
       dispatch(setSaveStatus('saved'));
-      setHasUnsavedChanges(false);
     } catch {
       dispatch(setSaveStatus('error'));
     }
   }, [dispatch, document, documentId, table]);
-
-  useEffect(() => {
-    if (!hasUnsavedChanges) {
-      return;
-    }
-
-    const timerId = window.setTimeout(() => {
-      saveDocumentNow();
-    }, AUTOSAVE_DELAY);
-
-    return () => {
-      window.clearTimeout(timerId);
-    };
-  }, [hasUnsavedChanges, table, saveDocumentNow]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -120,7 +83,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
-      if (!hasUnsavedChanges) {
+      if (saveStatus !== 'saving') {
         return;
       }
 
@@ -133,7 +96,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [hasUnsavedChanges]);
+  }, [saveStatus]);
 
   function handleExportCsv() {
     if (document === null) {
@@ -152,7 +115,6 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     const json = tableToJson(table);
     downloadTextFile(document.title + '.json', json, 'application/json');
   }
-
 
   function handleImportCsv(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -190,8 +152,9 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         }
       }
 
+
       setCsvColumnNames(preparedColumnNames);
-      dispatch(setSpreadsheetTable(importedTable));
+      dispatch(replaceTable(importedTable));
     };
 
     reader.readAsText(file);
@@ -211,8 +174,8 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
   }
 
   function handleBackClick() {
-    if (hasUnsavedChanges) {
-      const isConfirmed = confirm('Есть несохранённые изменения. Выйти?');
+    if (saveStatus === 'saving') {
+      const isConfirmed = confirm('Документ ещё сохраняется. Выйти?');
 
       if (!isConfirmed) {
         return;

@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 
+import { autosaveMiddleware } from '@/app/autosaveMiddleware';
 import authReducer from '@/features/auth/authSlice';
 import documentsReducer from '@/features/documents/documentsSlice';
 import spreadsheetReducer from '@/features/spreadsheet/spreadsheetSlice';
@@ -12,6 +13,8 @@ export const store = configureStore({
     spreadsheet: spreadsheetReducer,
     ui: uiReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().prepend(autosaveMiddleware.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

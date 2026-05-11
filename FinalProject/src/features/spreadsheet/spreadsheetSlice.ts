@@ -66,6 +66,17 @@ const spreadsheetSlice = createSlice({
       state.future = [];
     },
 
+    replaceTable(state, action: PayloadAction<TableData>) {
+      saveToHistory(state);
+
+      state.table = action.payload;
+      state.selectedCell = {
+        row: 0,
+        col: 0,
+      };
+      state.selectedRange = null;
+    },
+
     selectCell(state, action: PayloadAction<SelectedCell>) {
       state.selectedCell = action.payload;
       state.selectedRange = null;
@@ -163,6 +174,7 @@ const spreadsheetSlice = createSlice({
           }
         }
 
+
         newTable.push(newRow);
       }
 
@@ -171,8 +183,6 @@ const spreadsheetSlice = createSlice({
 
     deleteColumn(state, action: PayloadAction<DeleteColumnPayload>) {
       const colsCount = state.table[0]?.length ?? 0;
-
-
 
       if (colsCount <= 1) {
         return;
@@ -228,6 +238,7 @@ const spreadsheetSlice = createSlice({
 
 export const {
   setTable,
+  replaceTable,
   selectCell,
   selectRange,
   changeCell,
