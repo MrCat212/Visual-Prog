@@ -88,80 +88,48 @@ function SpreadsheetTable() {
   const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
 
   useEffect(() => {
-    const columnCount = table[0]?.length ?? 0;
-
-    setColumnWidths((oldWidths) => {
-      if (oldWidths.length === columnCount) {
-        return oldWidths;
-      }
-
-      const newWidths: number[] = [];
-
-      for (let i = 0; i < columnCount; i++) {
-        newWidths.push(oldWidths[i] ?? DEFAULT_COLUMN_WIDTH);
-      }
-
-      return newWidths;
-    });
-
-    setRowHeights((oldHeights) => {
-      if (oldHeights.length === table.length) {
-        return oldHeights;
-      }
-
-      const newHeights: number[] = [];
-
-      for (let i = 0; i < table.length; i++) {
-        newHeights.push(oldHeights[i] ?? DEFAULT_ROW_HEIGHT);
-      }
-
-      return newHeights;
-    });
-  }, [table]);
-
-  useEffect(() => {
     function isCtrlOrMetaPressed(event: globalThis.KeyboardEvent): boolean {
       return event.ctrlKey || event.metaKey;
     }
-  
+
     function isZKey(event: globalThis.KeyboardEvent): boolean {
       return event.key.toLowerCase() === 'z' || event.code === 'KeyZ';
     }
-  
+
     function isYKey(event: globalThis.KeyboardEvent): boolean {
       return event.key.toLowerCase() === 'y' || event.code === 'KeyY';
     }
-  
+
     function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
       if (editingCell !== null) {
         return;
       }
-  
+
       if (isCtrlOrMetaPressed(event) && event.shiftKey && isZKey(event)) {
         event.preventDefault();
         dispatch(redo());
         return;
       }
-  
+
       if (isCtrlOrMetaPressed(event) && isZKey(event)) {
         event.preventDefault();
         dispatch(undo());
         return;
       }
-  
+
       if (isCtrlOrMetaPressed(event) && isYKey(event)) {
         event.preventDefault();
         dispatch(redo());
       }
     }
-  
+
     window.addEventListener('keydown', handleWindowKeyDown, true);
-  
+
     return () => {
       window.removeEventListener('keydown', handleWindowKeyDown, true);
     };
   }, [dispatch, editingCell]);
-  
+
   const columnCount = table[0]?.length ?? 0;
 
   const columnNames = useMemo(() => {
@@ -177,18 +145,18 @@ function SpreadsheetTable() {
   const rowOffsets = useMemo(() => {
     const offsets: number[] = [0];
 
-
-    for (let i = 0; i < rowHeights.length; i++) {
-      offsets.push(offsets[i] + rowHeights[i]);
+    for (let i = 0; i < table.length; i++) {
+      offsets.push(offsets[i] + (rowHeights[i] ?? DEFAULT_ROW_HEIGHT));
     }
 
     return offsets;
-  }, [rowHeights]);
+  }, [rowHeights, table.length]);
 
   const totalRowsHeight = rowOffsets[rowOffsets.length - 1];
 
   const visibleRows = useMemo<VisibleRows>(() => {
     let start = 0;
+
 
     while (start < table.length - 1 && rowOffsets[start + 1] < scrollTop) {
       start++;
@@ -376,7 +344,6 @@ function SpreadsheetTable() {
 
     const currentResizingColumn = resizingColumn;
 
-
     function handleMouseMove(event: globalThis.MouseEvent) {
       const difference = event.clientX - currentResizingColumn.startX;
       const newWidth = Math.max(
@@ -386,6 +353,7 @@ function SpreadsheetTable() {
 
       setColumnWidths((oldWidths) => {
         const newWidths: number[] = [];
+
 
         for (let i = 0; i < oldWidths.length; i++) {
           if (i === currentResizingColumn.col) {
@@ -509,12 +477,11 @@ function SpreadsheetTable() {
                   key={name}
                   className="column-header"
                   style={{
-                    width: columnWidths[colIndex],
-                    minWidth: columnWidths[colIndex],
+                    width: columnWidths[colIndex] ?? DEFAULT_COLUMN_WIDTH,
+                    minWidth: columnWidths[colIndex] ?? DEFAULT_COLUMN_WIDTH,
                   }}
                 >
                   {name}
-
 
                   <span
                     className="column-resize-handle"
@@ -527,6 +494,7 @@ function SpreadsheetTable() {
               ))}
             </tr>
           </thead>
+
 
           <tbody>
             {topPadding > 0 && (
@@ -549,7 +517,7 @@ function SpreadsheetTable() {
                   <th
                     className="row-header"
                     style={{
-                      height: rowHeights[rowIndex],
+                      height: rowHeights[rowIndex] ?? DEFAULT_ROW_HEIGHT,
                     }}
                   >
                     {rowIndex + 1}

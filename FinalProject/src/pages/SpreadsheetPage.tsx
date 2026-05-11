@@ -29,20 +29,18 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
   const table = useAppSelector((state) => state.spreadsheet.table);
   const saveStatus = useAppSelector((state) => state.ui.saveStatus);
 
-  const [document, setDocument] = useState<SpreadsheetDocument | null>(null);
+  const [document, setDocument] = useState<SpreadsheetDocument | null>(() =>
+    getDocumentById(documentId, mockUser.id),
+  );
   const [csvColumnNames, setCsvColumnNames] = useState<string[]>([]);
 
   useEffect(() => {
-    const foundDocument = getDocumentById(documentId, mockUser.id);
-
-    setDocument(foundDocument);
-    setCsvColumnNames([]);
     dispatch(setSaveStatus('saved'));
 
-    if (foundDocument !== null) {
-      dispatch(setSpreadsheetTable(foundDocument.data));
+    if (document !== null) {
+      dispatch(setSpreadsheetTable(document.data));
     }
-  }, [dispatch, documentId]);
+  }, [dispatch, document]);
 
   const saveDocumentNow = useCallback(() => {
     if (document === null) {
@@ -152,7 +150,6 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         }
       }
 
-
       setCsvColumnNames(preparedColumnNames);
       dispatch(replaceTable(importedTable));
     };
@@ -160,6 +157,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     reader.readAsText(file);
     event.target.value = '';
   }
+
 
   function getSaveStatusText(): string {
     if (saveStatus === 'saving') {

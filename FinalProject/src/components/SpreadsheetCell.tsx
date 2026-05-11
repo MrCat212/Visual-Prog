@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useRef } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 
 import type { Cell } from '@/types/spreadsheet';
@@ -34,13 +34,7 @@ function SpreadsheetCell({
   onStopEdit,
   onOpenContextMenu,
 }: SpreadsheetCellProps) {
-  const [editValue, setEditValue] = useState(cell.value);
-
-  useEffect(() => {
-    if (isEditing) {
-      setEditValue(cell.value);
-    }
-  }, [isEditing, cell.value]);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   function handleClick(event: MouseEvent<HTMLTableCellElement>) {
     onSelect(row, col, event.shiftKey);
@@ -59,12 +53,13 @@ function SpreadsheetCell({
   }
 
   function finishEditing() {
-    onChange(row, col, editValue);
+    const value = inputRef.current?.value ?? cell.value;
+
+    onChange(row, col, value);
     onStopEdit();
   }
 
   function cancelEditing() {
-    setEditValue(cell.value);
     onStopEdit();
   }
 
@@ -106,10 +101,10 @@ function SpreadsheetCell({
     >
       {isEditing ? (
         <input
+          ref={inputRef}
           className="cell-input"
-          value={editValue}
+          defaultValue={cell.value}
           autoFocus
-          onChange={(event) => setEditValue(event.target.value)}
           onBlur={finishEditing}
           onKeyDown={handleKeyDown}
         />
