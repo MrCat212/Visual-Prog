@@ -1,0 +1,217 @@
+import { describe, expect, it } from 'vitest';
+
+import spreadsheetReducer, {
+  addColumn,
+  addRow,
+  changeCell,
+  deleteColumn,
+  deleteRow,
+  redo,
+  replaceTable,
+  selectCell,
+  selectRange,
+  undo,
+} from '@/features/spreadsheet/spreadsheetSlice';
+import type { TableData } from '@/types/spreadsheet';
+import { createTable } from '@/utils/tableUtils';
+
+function createSmallTable(): TableData {
+  return createTable(3, 3);
+}
+
+describe('spreadsheetSlice', () => {
+  it('должен иметь начальное состояние', () => {
+    const state = spreadsheetReducer(undefined, {
+      type: 'unknown',
+    });
+
+    expect(state.table.length).toBe(100);
+    expect(state.table[0].length).toBe(26);
+    expect(state.selectedCell).toEqual({
+      row: 0,
+      col: 0,
+    });
+    expect(state.selectedRange).toBe(null);
+  });
+
+  it('должен заменять таблицу', () => {
+    const table = createSmallTable();
+    const state = spreadsheetReducer(undefined, replaceTable(table));
+
+    expect(state.table.length).toBe(3);
+    expect(state.table[0].length).toBe(3);
+  });
+
+  it('должен выбирать ячейку', () => {
+    const state = spreadsheetReducer(
+      undefined,
+      selectCell({
+        row: 2,
+        col: 1,
+      }),
+    );
+
+    expect(state.selectedCell).toEqual({
+      row: 2,
+      col: 1,
+    });
+    expect(state.selectedRange).toBe(null);
+  });
+
+  it('должен выбирать диапазон', () => {
+    const state = spreadsheetReducer(
+      undefined,
+      selectRange({
+        start: {
+          row: 0,
+          col: 0,
+        },
+        end: {
+          row: 2,
+          col: 2,
+        },
+      }),
+    );
+
+    expect(state.selectedRange).toEqual({
+      start: {
+        row: 0,
+        col: 0,
+      },
+      end: {
+        row: 2,
+        col: 2,
+      },
+    });
+  });
+
+  it('должен менять значение ячейки', () => {
+    const table = createSmallTable();
+    const stateWithTable = spreadsheetReducer(undefined, replaceTable(table));
+
+    const changedState = spreadsheetReducer(
+      stateWithTable,
+      changeCell({
+        row: 0,
+        col: 0,
+        value: '10',
+      }),
+    );
+
+    expect(changedState.table[0][0].value).toBe('10');
+    expect(changedState.table[0][0].result).toBe('10');
+  });
+
+  it('должен считать простую формулу', () => {
+    let state = spreadsheetReducer(undefined, replaceTable(createSmallTable()));
+
+    state = spreadsheetReducer(
+      state,
+      changeCell({
+        row: 0,
+        col: 0,
+        value: '10',
+      }),
+    );
+
+    state = spreadsheetReducer(
+      state,
+      changeCell({
+        row: 0,
+        col: 1,
+        value: '20',
+      }),
+    );
+
+    state = spreadsheetReducer(
+      state,
+      changeCell({
+        row: 0,
+        col: 2,
+        value: '=A1+B1',
+      }),
+    );
+
+    expect(state.table[0][2].result).toBe('30');
+  });
+
+  it('должен добавлять строку', () => {
+    const table = createSmallTable();
+    const stateWithTable = spreadsheetReducer(undefined, replaceTable(table));
+
+    const state = spreadsheetReducer(
+      stateWithTable,
+      addRow({
+        row: 1,
+      }),
+    );
+
+    expect(state.table.length).toBe(4);
+  });
+
+  it('должен удалять строку', () => {
+    const table = createSmallTable();
+    const stateWithTable = spreadsheetReducer(undefined, replaceTable(table));
+
+    const state = spreadsheetReducer(
+      stateWithTable,
+      deleteRow({
+        row: 1,
+      }),
+    );
+
+    expect(state.table.length).toBe(2);
+  });
+
+  it('должен добавлять столбец', () => {
+    const table = createSmallTable();
+    const stateWithTable = spreadsheetReducer(undefined, replaceTable(table));
+
+    const state = spreadsheetReducer(
+      stateWithTable,
+      addColumn({
+        col: 1,
+      }),
+    );
+
+    expect(state.table[0].length).toBe(4);
+  });
+
+  it('должен удалять столбец', () => {
+    const table = createSmallTable();
+    const stateWithTable = spreadsheetReducer(undefined, replaceTable(table));
+
+    const state = spreadsheetReducer(
+      stateWithTable,
+      deleteColumn({
+        col: 1,
+      }),
+    );
+
+    expect(state.table[0].length).toBe(2);
+  });
+
+
+  it('должен делать undo и redo', () => {
+    let state = spreadsheetReducer(undefined, replaceTable(createSmallTable()));
+
+    state = spreadsheetReducer(
+      state,
+      changeCell({
+        row: 0,
+        col: 0,
+        value: 'Привет',
+      }),
+    );
+
+    expect(state.table[0][0].value).toBe('Привет');
+
+    state = spreadsheetReducer(state, undo());
+
+    expect(state.table[0][0].value).toBe('');
+
+    state = spreadsheetReducer(state, redo());
+
+    expect(state.table[0][0].value).toBe('Привет');
+  });
+});
