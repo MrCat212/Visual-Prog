@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { setActiveDocumentId } from '@/features/documents/documentsSlice';
 import {
   createUserDocument,
   deleteUserDocument,
@@ -17,6 +17,7 @@ import type { SpreadsheetDocument } from '@/types/document';
 
 function DashboardPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
 
   const user = useAppSelector((state) => state.auth.user);
   const documents = useAppSelector((state) => state.documents.documents);
@@ -144,7 +145,7 @@ function DashboardPage() {
   }
 
   function handleOpenDocument(documentId: string) {
-    dispatch(setActiveDocumentId(documentId));
+    navigate(`/documents/${documentId}`);
   }
 
   function formatDate(date: string): string {
@@ -154,7 +155,7 @@ function DashboardPage() {
   if (user === null) {
     return (
       <div className="dashboard-page">
-        <h1>Пользователь не найден</h1>
+        <h2>Пользователь не найден</h2>
       </div>
     );
   }
@@ -163,17 +164,16 @@ function DashboardPage() {
     <div className="dashboard-page">
       <div className="dashboard-header">
         <div>
-          <h1>Мои документы</h1>
           <p>
             Пользователь: {user.name} ({user.email})
           </p>
         </div>
 
-
         <button type="button" onClick={openModal}>
           Создать документ
         </button>
       </div>
+
 
       {isLoading && <p>Загрузка документов...</p>}
 

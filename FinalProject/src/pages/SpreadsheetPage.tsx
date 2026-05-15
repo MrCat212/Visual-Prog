@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import SpreadsheetTable from '@/components/SpreadsheetTable';
+import { setActiveDocumentId } from '@/features/documents/documentsSlice';
 import {
   replaceTable,
   setTable as setSpreadsheetTable,
@@ -10,7 +12,6 @@ import {
 import { setSaveStatus } from '@/features/ui/uiSlice';
 import { getDocumentById, updateDocumentData } from '@/services/documentService';
 import { mockUser } from '@/services/mockUser';
-import type { SpreadsheetDocument } from '@/types/document';
 import {
   csvToTable,
   downloadTextFile,
@@ -18,29 +19,66 @@ import {
   tableToJson,
 } from '@/utils/fileUtils';
 
-type SpreadsheetPageProps = {
+type CsvInfo = {
   documentId: string;
-  onBack: () => void;
+  names: string[];
 };
 
-function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
+function SpreadsheetPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const params = useParams();
+
+  const documentId = params.documentId ?? '';
 
   const table = useAppSelector((state) => state.spreadsheet.table);
   const saveStatus = useAppSelector((state) => state.ui.saveStatus);
 
-  const [document, setDocument] = useState<SpreadsheetDocument | null>(() =>
-    getDocumentById(documentId, mockUser.id),
-  );
-  const [csvColumnNames, setCsvColumnNames] = useState<string[]>([]);
+  const document = useMemo(() => {
+    return getDocumentById(documentId, mockUser.id);
+  }, [documentId]);
+
+  const [csvInfo, setCsvInfo] = useState<CsvInfo>({
+    documentId: '',
+    names: [],
+  });
+
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (saveStatus !== 'saving') {
+      return false;
+    }
+
+    return currentLocation.pathname !== nextLocation.pathname;
+  });
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') {
+      return;
+    }
+
+    const isConfirmed = confirm('Документ ещё сохраняется. Выйти?');
+
+    if (isConfirmed) {
+      blocker.proceed();
+    } else {
+      blocker.reset();
+    }
+  }, [blocker]);
 
   useEffect(() => {
     dispatch(setSaveStatus('saved'));
 
     if (document !== null) {
+      dispatch(setActiveDocumentId(documentId));
       dispatch(setSpreadsheetTable(document.data));
+    } else {
+      dispatch(setActiveDocumentId(null));
     }
-  }, [dispatch, document]);
+
+    return () => {
+      dispatch(setActiveDocumentId(null));
+    };
+  }, [dispatch, documentId, document]);
 
   const saveDocumentNow = useCallback(() => {
     if (document === null) {
@@ -57,7 +95,6 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         return;
       }
 
-      setDocument(updatedDocument);
       dispatch(setSaveStatus('saved'));
     } catch {
       dispatch(setSaveStatus('error'));
@@ -126,6 +163,7 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
     reader.onload = () => {
       const result = reader.result;
 
+
       if (typeof result !== 'string') {
         alert('Не получилось прочитать файл');
         return;
@@ -150,14 +188,17 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         }
       }
 
-      setCsvColumnNames(preparedColumnNames);
+      setCsvInfo({
+        documentId,
+        names: preparedColumnNames,
+      });
+
       dispatch(replaceTable(importedTable));
     };
 
     reader.readAsText(file);
     event.target.value = '';
   }
-
 
   function getSaveStatusText(): string {
     if (saveStatus === 'saving') {
@@ -172,34 +213,41 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
   }
 
   function handleBackClick() {
-    if (saveStatus === 'saving') {
-      const isConfirmed = confirm('Документ ещё сохраняется. Выйти?');
-
-      if (!isConfirmed) {
-        return;
-      }
-    }
-
-    onBack();
+    navigate('/dashboard');
   }
 
   if (document === null) {
     return (
       <div className="spreadsheet-page">
-        <button type="button" onClick={onBack}>
-          Назад
-        </button>
+        <div className="breadcrumbs">
+          <Link to="/dashboard">Мои документы</Link>
+          <span> → </span>
+          <span>Документ не найден</span>
+        </div>
 
-        <h1>Документ не найден</h1>
+        <h2>Документ не найден</h2>
+        <p>Возможно, он был удалён или ссылка неправильная. Пу-пу-пу</p>
+
+        <button type="button" onClick={() => navigate('/dashboard')}>
+          Вернуться к документам
+        </button>
       </div>
     );
   }
 
+  const shouldShowCsvColumns = csvInfo.documentId === documentId && csvInfo.names.length > 0;
+
   return (
     <div className="spreadsheet-page">
+      <div className="breadcrumbs">
+        <Link to="/dashboard">Мои документы</Link>
+        <span> → </span>
+        <span>{document.title}</span>
+      </div>
+
       <div className="spreadsheet-page-header">
         <div>
-          <h1>{document.title}</h1>
+          <h2>{document.title}</h2>
           <p>
             Размер: {table.length} × {table[0]?.length ?? 0}
           </p>
@@ -230,9 +278,9 @@ function SpreadsheetPage({ documentId, onBack }: SpreadsheetPageProps) {
         </div>
       </div>
 
-      {csvColumnNames.length > 0 && (
+      {shouldShowCsvColumns && (
         <div className="csv-columns-info">
-          <strong>Колонки из CSV:</strong> {csvColumnNames.join(', ')}
+          <strong>Колонки из CSV:</strong> {csvInfo.names.join(', ')}
         </div>
       )}
 
