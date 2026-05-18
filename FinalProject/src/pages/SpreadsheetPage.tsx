@@ -11,7 +11,6 @@ import {
 } from '@/features/spreadsheet/spreadsheetSlice';
 import { setSaveStatus } from '@/features/ui/uiSlice';
 import { getDocumentById, updateDocumentData } from '@/services/documentService';
-import { mockUser } from '@/services/mockUser';
 import {
   csvToTable,
   downloadTextFile,
@@ -31,12 +30,17 @@ function SpreadsheetPage() {
 
   const documentId = params.documentId ?? '';
 
+  const user = useAppSelector((state) => state.auth.user);
   const table = useAppSelector((state) => state.spreadsheet.table);
   const saveStatus = useAppSelector((state) => state.ui.saveStatus);
 
   const document = useMemo(() => {
-    return getDocumentById(documentId, mockUser.id);
-  }, [documentId]);
+    if (user === null) {
+      return null;
+    }
+
+    return getDocumentById(documentId, user.id);
+  }, [documentId, user]);
 
   const [csvInfo, setCsvInfo] = useState<CsvInfo>({
     documentId: '',
@@ -81,14 +85,14 @@ function SpreadsheetPage() {
   }, [dispatch, documentId, document]);
 
   const saveDocumentNow = useCallback(() => {
-    if (document === null) {
+    if (document === null || user === null) {
       return;
     }
 
     dispatch(setSaveStatus('saving'));
 
     try {
-      const updatedDocument = updateDocumentData(documentId, mockUser.id, table);
+      const updatedDocument = updateDocumentData(documentId, user.id, table);
 
       if (updatedDocument === null) {
         dispatch(setSaveStatus('error'));
@@ -99,7 +103,7 @@ function SpreadsheetPage() {
     } catch {
       dispatch(setSaveStatus('error'));
     }
-  }, [dispatch, document, documentId, table]);
+  }, [dispatch, document, documentId, table, user]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -158,11 +162,11 @@ function SpreadsheetPage() {
       return;
     }
 
+
     const reader = new FileReader();
 
     reader.onload = () => {
       const result = reader.result;
-
 
       if (typeof result !== 'string') {
         alert('Не получилось прочитать файл');
@@ -216,6 +220,14 @@ function SpreadsheetPage() {
     navigate('/dashboard');
   }
 
+  if (user === null) {
+    return (
+      <div className="spreadsheet-page">
+        <h2>Пользователь не найден</h2>
+      </div>
+    );
+  }
+
   if (document === null) {
     return (
       <div className="spreadsheet-page">
@@ -226,7 +238,7 @@ function SpreadsheetPage() {
         </div>
 
         <h2>Документ не найден</h2>
-        <p>Возможно, он был удалён или ссылка неправильная. Пу-пу-пу</p>
+        <p>Возможно, он был удалён, ссылка неправильная или документ принадлежит другому пользователю.</p>
 
         <button type="button" onClick={() => navigate('/dashboard')}>
           Вернуться к документам
