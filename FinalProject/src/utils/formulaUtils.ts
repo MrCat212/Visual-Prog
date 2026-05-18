@@ -1,4 +1,5 @@
 import type { Cell, CellType, TableData } from '@/types/spreadsheet';
+import { createDefaultCellStyle } from '@/utils/tableUtils';
 
 type CellPosition = {
   row: number;
@@ -37,6 +38,7 @@ export function recalculateTable(table: TableData): TableData {
         value: oldCell.value,
         result: oldCell.value,
         type,
+        style: oldCell.style ?? createDefaultCellStyle(),
       });
     }
 
@@ -186,6 +188,7 @@ function getRangeNumbers(range: string, table: TableData): number[] {
   }
 
   const numbers: number[] = [];
+
 
   const startRow = Math.min(start.row, end.row);
   const endRow = Math.max(start.row, end.row);

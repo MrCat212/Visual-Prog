@@ -100,6 +100,7 @@ const spreadsheetSlice = createSlice({
               value: action.payload.value,
               result: action.payload.value,
               type: 'text',
+              style: state.table[i][j].style,
             });
           } else {
             newRow.push(state.table[i][j]);

@@ -1,5 +1,6 @@
 import type { Cell, TableData } from '@/types/spreadsheet';
 import { recalculateTable } from '@/utils/formulaUtils';
+import { createDefaultCellStyle } from '@/utils/tableUtils';
 
 export function tableToCsv(table: TableData): string {
   const lines: string[] = [];
@@ -40,6 +41,7 @@ export function csvToTable(csvText: string): TableData {
         value: values[j].trim(),
         result: values[j].trim(),
         type: 'text',
+        style: createDefaultCellStyle(),
       });
     }
 

@@ -1,10 +1,23 @@
-import type { Cell, TableData } from '@/types/spreadsheet';
+import type { Cell, CellStyle, TableData } from '@/types/spreadsheet';
+
+export function createDefaultCellStyle(): CellStyle {
+  return {
+    isBold: false,
+    isItalic: false,
+    isUnderline: false,
+    backgroundColor: '#ffffff',
+    textColor: '#000000',
+    textAlign: 'left',
+    numberFormat: 'normal',
+  };
+}
 
 export function createEmptyCell(): Cell {
   return {
     value: '',
     result: '',
     type: 'text',
+    style: createDefaultCellStyle(),
   };
 }
 
