@@ -2,6 +2,7 @@ import { memo, useRef } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 
 import type { Cell } from '@/types/spreadsheet';
+import { createDefaultCellStyle } from '@/utils/tableUtils';
 
 type SpreadsheetCellProps = {
   cell: Cell;
@@ -35,6 +36,7 @@ function SpreadsheetCell({
   onOpenContextMenu,
 }: SpreadsheetCellProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const style = cell.style ?? createDefaultCellStyle();
 
   function handleClick(event: MouseEvent<HTMLTableCellElement>) {
     onSelect(row, col, event.shiftKey);
@@ -77,6 +79,44 @@ function SpreadsheetCell({
     }
   }
 
+  function getDisplayedValue(): string {
+    const rawValue = cell.result || cell.value;
+
+    if (style.numberFormat === 'normal') {
+      return rawValue;
+    }
+
+    const number = Number(rawValue);
+
+    if (style.numberFormat === 'percent') {
+      if (Number.isNaN(number)) {
+        return rawValue;
+      }
+
+      return `${number * 100}%`;
+    }
+
+    if (style.numberFormat === 'currency') {
+      if (Number.isNaN(number)) {
+        return rawValue;
+      }
+
+      return `${number.toLocaleString('ru-RU')} ₽`;
+    }
+
+    if (style.numberFormat === 'date') {
+      const date = new Date(rawValue);
+
+      if (Number.isNaN(date.getTime())) {
+        return rawValue;
+      }
+
+      return date.toLocaleDateString('ru-RU');
+    }
+
+    return rawValue;
+  }
+
   let cellClassName = 'spreadsheet-cell';
 
   if (isInSelectedRange) {
@@ -94,6 +134,12 @@ function SpreadsheetCell({
         width,
         minWidth: width,
         height,
+        fontWeight: style.isBold ? 'bold' : 'normal',
+        fontStyle: style.isItalic ? 'italic' : 'normal',
+        textDecoration: style.isUnderline ? 'underline' : 'none',
+        backgroundColor: style.backgroundColor,
+        color: style.textColor,
+        textAlign: style.textAlign,
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -105,11 +151,19 @@ function SpreadsheetCell({
           className="cell-input"
           defaultValue={cell.value}
           autoFocus
+          style={{
+            fontWeight: style.isBold ? 'bold' : 'normal',
+            fontStyle: style.isItalic ? 'italic' : 'normal',
+            textDecoration: style.isUnderline ? 'underline' : 'none',
+            backgroundColor: style.backgroundColor,
+            color: style.textColor,
+            textAlign: style.textAlign,
+          }}
           onBlur={finishEditing}
           onKeyDown={handleKeyDown}
         />
       ) : (
-        cell.result || cell.value
+        getDisplayedValue()
       )}
     </td>
   );

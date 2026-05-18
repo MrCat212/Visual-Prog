@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent, UIEvent } from 'react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import FormulaBar from '@/components/FormulaBar';
 import SpreadsheetCell from '@/components/SpreadsheetCell';
+import FormattingToolbar from '@/components/FormattingToolbar';
 import {
   addColumn,
   addRow,
@@ -465,6 +466,8 @@ function SpreadsheetTable() {
       onClick={handleWrapperClick}
     >
       <FormulaBar value={activeCell?.value ?? ''} />
+
+      <FormattingToolbar />
 
       <div className="table-scroll" onScroll={handleScroll}>
         <table className="spreadsheet-table">

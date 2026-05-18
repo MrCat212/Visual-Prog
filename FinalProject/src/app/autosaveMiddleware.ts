@@ -9,6 +9,13 @@ import {
   deleteRow,
   redo,
   replaceTable,
+  setBackgroundColor,
+  setNumberFormat,
+  setTextAlign,
+  setTextColor,
+  toggleBold,
+  toggleItalic,
+  toggleUnderline,
   undo,
 } from '@/features/spreadsheet/spreadsheetSlice';
 import { setSaveStatus } from '@/features/ui/uiSlice';
@@ -30,6 +37,13 @@ autosaveMiddleware.startListening({
     undo,
     redo,
     replaceTable,
+    toggleBold,
+    toggleItalic,
+    toggleUnderline,
+    setTextColor,
+    setBackgroundColor,
+    setTextAlign,
+    setNumberFormat,
   ),
 
   effect: async (_action, listenerApi) => {

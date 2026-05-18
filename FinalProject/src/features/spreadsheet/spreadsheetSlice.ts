@@ -1,9 +1,17 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-import type { Cell, SelectedCell, SelectedRange, TableData } from '@/types/spreadsheet';
+import type {
+  Cell,
+  CellStyle,
+  NumberFormat,
+  SelectedCell,
+  SelectedRange,
+  TableData,
+  TextAlign,
+} from '@/types/spreadsheet';
 import { recalculateTable } from '@/utils/formulaUtils';
-import { createEmptyCell, createTable } from '@/utils/tableUtils';
+import { createDefaultCellStyle, createEmptyCell, createTable } from '@/utils/tableUtils';
 
 type ChangeCellPayload = {
   row: number;
@@ -25,6 +33,22 @@ type AddColumnPayload = {
 
 type DeleteColumnPayload = {
   col: number;
+};
+
+type SetTextColorPayload = {
+  color: string;
+};
+
+type SetBackgroundColorPayload = {
+  color: string;
+};
+
+type SetTextAlignPayload = {
+  textAlign: TextAlign;
+};
+
+type SetNumberFormatPayload = {
+  numberFormat: NumberFormat;
 };
 
 type SpreadsheetState = {
@@ -51,12 +75,71 @@ function saveToHistory(state: SpreadsheetState) {
   state.future = [];
 }
 
+function getCellStyle(cell: Cell): CellStyle {
+  return cell.style ?? createDefaultCellStyle();
+}
+
+function getSelectedBounds(state: SpreadsheetState) {
+  if (state.selectedRange === null) {
+    return {
+      startRow: state.selectedCell.row,
+      endRow: state.selectedCell.row,
+      startCol: state.selectedCell.col,
+      endCol: state.selectedCell.col,
+    };
+  }
+
+  return {
+    startRow: Math.min(state.selectedRange.start.row, state.selectedRange.end.row),
+    endRow: Math.max(state.selectedRange.start.row, state.selectedRange.end.row),
+    startCol: Math.min(state.selectedRange.start.col, state.selectedRange.end.col),
+    endCol: Math.max(state.selectedRange.start.col, state.selectedRange.end.col),
+  };
+}
+
+function updateSelectedCellsStyle(
+  state: SpreadsheetState,
+  getNewStyle: (oldStyle: CellStyle) => CellStyle,
+) {
+  saveToHistory(state);
+
+  const bounds = getSelectedBounds(state);
+  const newTable: TableData = [];
+
+  for (let row = 0; row < state.table.length; row++) {
+    const newRow: Cell[] = [];
+
+    for (let col = 0; col < state.table[row].length; col++) {
+      const cell = state.table[row][col];
+
+      const isSelected =
+        row >= bounds.startRow &&
+        row <= bounds.endRow &&
+        col >= bounds.startCol &&
+        col <= bounds.endCol;
+
+      if (isSelected) {
+        newRow.push({
+          ...cell,
+          style: getNewStyle(getCellStyle(cell)),
+        });
+      } else {
+        newRow.push(cell);
+      }
+    }
+
+    newTable.push(newRow);
+  }
+
+  state.table = newTable;
+}
+
 const spreadsheetSlice = createSlice({
   name: 'spreadsheet',
   initialState,
   reducers: {
     setTable(state, action: PayloadAction<TableData>) {
-      state.table = action.payload;
+      state.table = recalculateTable(action.payload);
       state.selectedCell = {
         row: 0,
         col: 0,
@@ -69,7 +152,7 @@ const spreadsheetSlice = createSlice({
     replaceTable(state, action: PayloadAction<TableData>) {
       saveToHistory(state);
 
-      state.table = action.payload;
+      state.table = recalculateTable(action.payload);
       state.selectedCell = {
         row: 0,
         col: 0,
@@ -94,13 +177,14 @@ const spreadsheetSlice = createSlice({
       for (let i = 0; i < state.table.length; i++) {
         const newRow: Cell[] = [];
 
+
         for (let j = 0; j < state.table[i].length; j++) {
           if (i === action.payload.row && j === action.payload.col) {
             newRow.push({
               value: action.payload.value,
               result: action.payload.value,
               type: 'text',
-              style: state.table[i][j].style,
+              style: getCellStyle(state.table[i][j]),
             });
           } else {
             newRow.push(state.table[i][j]);
@@ -175,7 +259,6 @@ const spreadsheetSlice = createSlice({
           }
         }
 
-
         newTable.push(newRow);
       }
 
@@ -213,6 +296,56 @@ const spreadsheetSlice = createSlice({
       };
     },
 
+    toggleBold(state) {
+      updateSelectedCellsStyle(state, (oldStyle) => ({
+        ...oldStyle,
+        isBold: !oldStyle.isBold,
+      }));
+    },
+
+    toggleItalic(state) {
+      updateSelectedCellsStyle(state, (oldStyle) => ({
+        ...oldStyle,
+        isItalic: !oldStyle.isItalic,
+      }));
+    },
+
+    toggleUnderline(state) {
+      updateSelectedCellsStyle(state, (oldStyle) => ({
+        ...oldStyle,
+        isUnderline: !oldStyle.isUnderline,
+      }));
+    },
+
+    setTextColor(state, action: PayloadAction<SetTextColorPayload>) {
+      updateSelectedCellsStyle(state, (oldStyle) => ({
+        ...oldStyle,
+        textColor: action.payload.color,
+      }));
+    },
+
+    setBackgroundColor(state, action: PayloadAction<SetBackgroundColorPayload>) {
+      updateSelectedCellsStyle(state, (oldStyle) => ({
+        ...oldStyle,
+        backgroundColor: action.payload.color,
+      }));
+    },
+
+    setTextAlign(state, action: PayloadAction<SetTextAlignPayload>) {
+      updateSelectedCellsStyle(state, (oldStyle) => ({
+        ...oldStyle,
+        textAlign: action.payload.textAlign,
+      }));
+    },
+
+
+    setNumberFormat(state, action: PayloadAction<SetNumberFormatPayload>) {
+      updateSelectedCellsStyle(state, (oldStyle) => ({
+        ...oldStyle,
+        numberFormat: action.payload.numberFormat,
+      }));
+    },
+
     undo(state) {
       const previousTable = state.past.pop();
 
@@ -247,6 +380,13 @@ export const {
   deleteRow,
   addColumn,
   deleteColumn,
+  toggleBold,
+  toggleItalic,
+  toggleUnderline,
+  setTextColor,
+  setBackgroundColor,
+  setTextAlign,
+  setNumberFormat,
   undo,
   redo,
 } = spreadsheetSlice.actions;
