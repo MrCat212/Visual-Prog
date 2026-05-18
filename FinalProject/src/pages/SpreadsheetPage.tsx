@@ -10,7 +10,11 @@ import {
   setTable as setSpreadsheetTable,
 } from '@/features/spreadsheet/spreadsheetSlice';
 import { setSaveStatus } from '@/features/ui/uiSlice';
-import { getDocumentById, updateDocumentData } from '@/services/documentService';
+import {
+  getDocumentById,
+  getDocumentByIdForAnyUser,
+  updateDocumentData,
+} from '@/services/documentService';
 import {
   csvToTable,
   downloadTextFile,
@@ -33,6 +37,10 @@ function SpreadsheetPage() {
   const user = useAppSelector((state) => state.auth.user);
   const table = useAppSelector((state) => state.spreadsheet.table);
   const saveStatus = useAppSelector((state) => state.ui.saveStatus);
+
+  const documentForAnyUser = useMemo(() => {
+    return getDocumentByIdForAnyUser(documentId);
+  }, [documentId]);
 
   const document = useMemo(() => {
     if (user === null) {
@@ -72,6 +80,14 @@ function SpreadsheetPage() {
   useEffect(() => {
     dispatch(setSaveStatus('saved'));
 
+    if (user !== null && documentForAnyUser !== null && document === null) {
+      alert('Нет доступа к этому документу');
+      navigate('/dashboard', {
+        replace: true,
+      });
+      return;
+    }
+
     if (document !== null) {
       dispatch(setActiveDocumentId(documentId));
       dispatch(setSpreadsheetTable(document.data));
@@ -82,7 +98,7 @@ function SpreadsheetPage() {
     return () => {
       dispatch(setActiveDocumentId(null));
     };
-  }, [dispatch, documentId, document]);
+  }, [dispatch, documentId, document, documentForAnyUser, navigate, user]);
 
   const saveDocumentNow = useCallback(() => {
     if (document === null || user === null) {
@@ -146,6 +162,7 @@ function SpreadsheetPage() {
     downloadTextFile(document.title + '.csv', csv, 'text/csv');
   }
 
+
   function handleExportJson() {
     if (document === null) {
       return;
@@ -161,7 +178,6 @@ function SpreadsheetPage() {
     if (file === undefined) {
       return;
     }
-
 
     const reader = new FileReader();
 
@@ -238,7 +254,7 @@ function SpreadsheetPage() {
         </div>
 
         <h2>Документ не найден</h2>
-        <p>Возможно, он был удалён, ссылка неправильная или документ принадлежит другому пользователю.</p>
+        <p>Возможно, он был удалён или ссылка неправильная.</p>
 
         <button type="button" onClick={() => navigate('/dashboard')}>
           Вернуться к документам

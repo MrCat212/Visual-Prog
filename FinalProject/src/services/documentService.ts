@@ -55,6 +55,18 @@ export function getDocumentById(
   return null;
 }
 
+export function getDocumentByIdForAnyUser(documentId: string): SpreadsheetDocument | null {
+  const documents = getAllDocuments();
+
+  for (let i = 0; i < documents.length; i++) {
+    if (documents[i].id === documentId) {
+      return documents[i];
+    }
+  }
+
+  return null;
+}
+
 export function createDocument(
   userId: string,
   data: CreateDocumentData,
@@ -164,6 +176,7 @@ export function duplicateDocument(
   if (document === null) {
     return null;
   }
+
 
   const now = new Date().toISOString();
 
