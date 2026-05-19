@@ -5,6 +5,7 @@ import {
   addColumn,
   addRow,
   changeCell,
+  clearSelectedCells,
   deleteColumn,
   deleteRow,
   redo,
@@ -30,6 +31,7 @@ let timerId: number | undefined;
 autosaveMiddleware.startListening({
   matcher: isAnyOf(
     changeCell,
+    clearSelectedCells,
     addRow,
     deleteRow,
     addColumn,

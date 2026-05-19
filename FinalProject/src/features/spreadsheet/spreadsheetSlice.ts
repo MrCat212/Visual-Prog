@@ -169,6 +169,28 @@ const spreadsheetSlice = createSlice({
       state.selectedRange = action.payload;
     },
 
+    selectAllCells(state) {
+      const lastRow = Math.max(0, state.table.length - 1);
+      const lastCol = Math.max(0, (state.table[0]?.length ?? 1) - 1);
+
+      state.selectedCell = {
+        row: 0,
+        col: 0,
+      };
+
+
+      state.selectedRange = {
+        start: {
+          row: 0,
+          col: 0,
+        },
+        end: {
+          row: lastRow,
+          col: lastCol,
+        },
+      };
+    },
+
     changeCell(state, action: PayloadAction<ChangeCellPayload>) {
       saveToHistory(state);
 
@@ -176,7 +198,6 @@ const spreadsheetSlice = createSlice({
 
       for (let i = 0; i < state.table.length; i++) {
         const newRow: Cell[] = [];
-
 
         for (let j = 0; j < state.table[i].length; j++) {
           if (i === action.payload.row && j === action.payload.col) {
@@ -188,6 +209,42 @@ const spreadsheetSlice = createSlice({
             });
           } else {
             newRow.push(state.table[i][j]);
+          }
+        }
+
+        newTable.push(newRow);
+      }
+
+      state.table = recalculateTable(newTable);
+    },
+
+    clearSelectedCells(state) {
+      saveToHistory(state);
+
+      const bounds = getSelectedBounds(state);
+      const newTable: TableData = [];
+
+      for (let row = 0; row < state.table.length; row++) {
+        const newRow: Cell[] = [];
+
+        for (let col = 0; col < state.table[row].length; col++) {
+          const cell = state.table[row][col];
+
+          const isSelected =
+            row >= bounds.startRow &&
+            row <= bounds.endRow &&
+            col >= bounds.startCol &&
+            col <= bounds.endCol;
+
+          if (isSelected) {
+            newRow.push({
+              value: '',
+              result: '',
+              type: 'text',
+              style: getCellStyle(cell),
+            });
+          } else {
+            newRow.push(cell);
           }
         }
 
@@ -290,6 +347,7 @@ const spreadsheetSlice = createSlice({
 
       state.table = recalculateTable(newTable);
 
+
       state.selectedCell = {
         row: state.selectedCell.row,
         col: Math.max(0, action.payload.col - 1),
@@ -338,7 +396,6 @@ const spreadsheetSlice = createSlice({
       }));
     },
 
-
     setNumberFormat(state, action: PayloadAction<SetNumberFormatPayload>) {
       updateSelectedCellsStyle(state, (oldStyle) => ({
         ...oldStyle,
@@ -375,7 +432,9 @@ export const {
   replaceTable,
   selectCell,
   selectRange,
+  selectAllCells,
   changeCell,
+  clearSelectedCells,
   addRow,
   deleteRow,
   addColumn,

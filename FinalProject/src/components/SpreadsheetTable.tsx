@@ -2,18 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent, UIEvent } from 'react';
 
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import FormattingToolbar from '@/components/FormattingToolbar';
 import FormulaBar from '@/components/FormulaBar';
 import SpreadsheetCell from '@/components/SpreadsheetCell';
-import FormattingToolbar from '@/components/FormattingToolbar';
 import {
   addColumn,
   addRow,
   changeCell,
+  clearSelectedCells,
   deleteColumn,
   deleteRow,
   redo,
+  selectAllCells,
   selectCell,
   selectRange,
+  toggleBold,
+  toggleItalic,
+  toggleUnderline,
   undo,
 } from '@/features/spreadsheet/spreadsheetSlice';
 import type { SelectedCell } from '@/types/spreadsheet';
@@ -101,8 +106,36 @@ function SpreadsheetTable() {
       return event.key.toLowerCase() === 'y' || event.code === 'KeyY';
     }
 
+    function isBKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'b' || event.code === 'KeyB';
+    }
+
+    function isIKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'i' || event.code === 'KeyI';
+    }
+
+    function isUKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'u' || event.code === 'KeyU';
+    }
+
+    function isAKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'a' || event.code === 'KeyA';
+    }
+
     function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
       if (editingCell !== null) {
+        return;
+      }
+
+      if (isCtrlOrMetaPressed(event) && isAKey(event)) {
+        event.preventDefault();
+        dispatch(selectAllCells());
+        return;
+      }
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        dispatch(clearSelectedCells());
         return;
       }
 
@@ -111,6 +144,7 @@ function SpreadsheetTable() {
         dispatch(redo());
         return;
       }
+
 
       if (isCtrlOrMetaPressed(event) && isZKey(event)) {
         event.preventDefault();
@@ -121,6 +155,24 @@ function SpreadsheetTable() {
       if (isCtrlOrMetaPressed(event) && isYKey(event)) {
         event.preventDefault();
         dispatch(redo());
+        return;
+      }
+
+      if (isCtrlOrMetaPressed(event) && isBKey(event)) {
+        event.preventDefault();
+        dispatch(toggleBold());
+        return;
+      }
+
+      if (isCtrlOrMetaPressed(event) && isIKey(event)) {
+        event.preventDefault();
+        dispatch(toggleItalic());
+        return;
+      }
+
+      if (isCtrlOrMetaPressed(event) && isUKey(event)) {
+        event.preventDefault();
+        dispatch(toggleUnderline());
       }
     }
 
@@ -157,7 +209,6 @@ function SpreadsheetTable() {
 
   const visibleRows = useMemo<VisibleRows>(() => {
     let start = 0;
-
 
     while (start < table.length - 1 && rowOffsets[start + 1] < scrollTop) {
       start++;
@@ -281,6 +332,7 @@ function SpreadsheetTable() {
       }),
     );
 
+
     setContextMenu(null);
   }, [contextMenu, dispatch]);
 
@@ -354,7 +406,6 @@ function SpreadsheetTable() {
 
       setColumnWidths((oldWidths) => {
         const newWidths: number[] = [];
-
 
         for (let i = 0; i < oldWidths.length; i++) {
           if (i === currentResizingColumn.col) {
@@ -449,6 +500,7 @@ function SpreadsheetTable() {
       return false;
     }
 
+
     const startRow = Math.min(selectedRange.start.row, selectedRange.end.row);
     const endRow = Math.max(selectedRange.start.row, selectedRange.end.row);
     const startCol = Math.min(selectedRange.start.col, selectedRange.end.col);
@@ -497,7 +549,6 @@ function SpreadsheetTable() {
               ))}
             </tr>
           </thead>
-
 
           <tbody>
             {topPadding > 0 && (
@@ -559,6 +610,7 @@ function SpreadsheetTable() {
                 </tr>
               );
             })}
+
 
             {bottomPadding > 0 && (
               <tr className="virtual-spacer-row">
