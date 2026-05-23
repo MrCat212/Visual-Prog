@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent, UIEvent } from 'react';
+import type { ClipboardEvent, KeyboardEvent, MouseEvent, UIEvent } from 'react';
 
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import FormattingToolbar from '@/components/FormattingToolbar';
@@ -96,8 +96,7 @@ function SpreadsheetTable() {
 
   const getSelectedCellsText = useCallback((): string => {
     if (selectedRange === null) {
-      const value = table[selectedCell.row]?.[selectedCell.col]?.value ?? '';
-      return value;
+      return table[selectedCell.row]?.[selectedCell.col]?.value ?? '';
     }
 
     const startRow = Math.min(selectedRange.start.row, selectedRange.end.row);
@@ -120,7 +119,7 @@ function SpreadsheetTable() {
     return rows.join('\n');
   }, [selectedCell, selectedRange, table]);
 
-    const parseClipboardText = useCallback((text: string): string[][] => {
+  const parseClipboardText = useCallback((text: string): string[][] => {
     const lines = text.split(/\r?\n/);
     const values: string[][] = [];
 
@@ -164,61 +163,8 @@ function SpreadsheetTable() {
       return event.key.toLowerCase() === 'a' || event.code === 'KeyA';
     }
 
-    function isCKey(event: globalThis.KeyboardEvent): boolean {
-      return event.key.toLowerCase() === 'c' || event.code === 'KeyC';
-    }
-
-    function isXKey(event: globalThis.KeyboardEvent): boolean {
-      return event.key.toLowerCase() === 'x' || event.code === 'KeyX';
-    }
-
-    function isVKey(event: globalThis.KeyboardEvent): boolean {
-      return event.key.toLowerCase() === 'v' || event.code === 'KeyV';
-    }
-
     function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
       if (editingCell !== null) {
-        return;
-      }
-
-      if (isCtrlOrMetaPressed(event) && isCKey(event)) {
-        event.preventDefault();
-
-        const text = getSelectedCellsText();
-        void navigator.clipboard.writeText(text);
-
-        return;
-      }
-
-      if (isCtrlOrMetaPressed(event) && isXKey(event)) {
-        event.preventDefault();
-
-        const text = getSelectedCellsText();
-        void navigator.clipboard.writeText(text);
-        dispatch(clearSelectedCells());
-
-        return;
-      }
-
-      if (isCtrlOrMetaPressed(event) && isVKey(event)) {
-        event.preventDefault();
-
-        void navigator.clipboard.readText().then((text) => {
-          const values = parseClipboardText(text);
-
-          if (values.length === 0) {
-            return;
-          }
-
-          dispatch(
-            pasteCells({
-              startRow: selectedCell.row,
-              startCol: selectedCell.col,
-              values,
-            }),
-          );
-        });
-
         return;
       }
 
@@ -275,7 +221,7 @@ function SpreadsheetTable() {
     return () => {
       window.removeEventListener('keydown', handleWindowKeyDown, true);
     };
-  }, [dispatch, editingCell, getSelectedCellsText, parseClipboardText, selectedCell]);
+  }, [dispatch, editingCell]);
 
   const columnCount = table[0]?.length ?? 0;
 
@@ -588,6 +534,52 @@ function SpreadsheetTable() {
     }
   }
 
+  function handleCopy(event: ClipboardEvent<HTMLDivElement>) {
+    if (editingCell !== null) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const text = getSelectedCellsText();
+    event.clipboardData.setData('text/plain', text);
+  }
+
+  function handleCut(event: ClipboardEvent<HTMLDivElement>) {
+    if (editingCell !== null) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const text = getSelectedCellsText();
+    event.clipboardData.setData('text/plain', text);
+    dispatch(clearSelectedCells());
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+    if (editingCell !== null) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const text = event.clipboardData.getData('text/plain');
+    const values = parseClipboardText(text);
+
+    if (values.length === 0) {
+      return;
+    }
+
+    dispatch(
+      pasteCells({
+        startRow: selectedCell.row,
+        startCol: selectedCell.col,
+        values,
+      }),
+    );
+  }
+
   function isCellInSelectedRange(row: number, col: number): boolean {
     if (selectedRange === null) {
       return false;
@@ -608,6 +600,9 @@ function SpreadsheetTable() {
       tabIndex={0}
       onKeyDown={handleTableKeyDown}
       onClick={handleWrapperClick}
+      onCopy={handleCopy}
+      onCut={handleCut}
+      onPaste={handlePaste}
     >
       <FormulaBar value={activeCell?.value ?? ''} />
 
