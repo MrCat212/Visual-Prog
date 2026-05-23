@@ -6,6 +6,7 @@ import spreadsheetReducer, {
   changeCell,
   deleteColumn,
   deleteRow,
+  pasteCells,
   redo,
   replaceTable,
   selectCell,
@@ -191,7 +192,6 @@ describe('spreadsheetSlice', () => {
     expect(state.table[0].length).toBe(2);
   });
 
-
   it('должен делать undo и redo', () => {
     let state = spreadsheetReducer(undefined, replaceTable(createSmallTable()));
 
@@ -213,5 +213,26 @@ describe('spreadsheetSlice', () => {
     state = spreadsheetReducer(state, redo());
 
     expect(state.table[0][0].value).toBe('Привет');
+  });
+
+  it('должен вставлять значения из буфера обмена', () => {
+    let state = spreadsheetReducer(undefined, replaceTable(createSmallTable()));
+
+    state = spreadsheetReducer(
+      state,
+      pasteCells({
+        startRow: 0,
+        startCol: 0,
+        values: [
+          ['A', 'B'],
+          ['C', 'D'],
+        ],
+      }),
+    );
+
+    expect(state.table[0][0].value).toBe('A');
+    expect(state.table[0][1].value).toBe('B');
+    expect(state.table[1][0].value).toBe('C');
+    expect(state.table[1][1].value).toBe('D');
   });
 });

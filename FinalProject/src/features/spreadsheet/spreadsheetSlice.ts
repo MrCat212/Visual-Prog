@@ -35,6 +35,12 @@ type DeleteColumnPayload = {
   col: number;
 };
 
+type PasteCellsPayload = {
+  startRow: number;
+  startCol: number;
+  values: string[][];
+};
+
 type SetTextColorPayload = {
   color: string;
 };
@@ -178,7 +184,6 @@ const spreadsheetSlice = createSlice({
         col: 0,
       };
 
-
       state.selectedRange = {
         start: {
           row: 0,
@@ -245,6 +250,37 @@ const spreadsheetSlice = createSlice({
             });
           } else {
             newRow.push(cell);
+          }
+        }
+
+        newTable.push(newRow);
+      }
+
+      state.table = recalculateTable(newTable);
+    },
+
+    pasteCells(state, action: PayloadAction<PasteCellsPayload>) {
+      saveToHistory(state);
+
+      const newTable: TableData = [];
+
+      for (let row = 0; row < state.table.length; row++) {
+        const newRow: Cell[] = [];
+
+        for (let col = 0; col < state.table[row].length; col++) {
+          const pasteRow = row - action.payload.startRow;
+          const pasteCol = col - action.payload.startCol;
+          const pastedValue = action.payload.values[pasteRow]?.[pasteCol];
+
+          if (pastedValue !== undefined) {
+            newRow.push({
+              value: pastedValue,
+              result: pastedValue,
+              type: 'text',
+              style: getCellStyle(state.table[row][col]),
+            });
+          } else {
+            newRow.push(state.table[row][col]);
           }
         }
 
@@ -347,7 +383,6 @@ const spreadsheetSlice = createSlice({
 
       state.table = recalculateTable(newTable);
 
-
       state.selectedCell = {
         row: state.selectedCell.row,
         col: Math.max(0, action.payload.col - 1),
@@ -435,6 +470,7 @@ export const {
   selectAllCells,
   changeCell,
   clearSelectedCells,
+  pasteCells,
   addRow,
   deleteRow,
   addColumn,

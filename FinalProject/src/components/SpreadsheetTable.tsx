@@ -12,6 +12,7 @@ import {
   clearSelectedCells,
   deleteColumn,
   deleteRow,
+  pasteCells,
   redo,
   selectAllCells,
   selectCell,
@@ -93,6 +94,47 @@ function SpreadsheetTable() {
   const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
   const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
 
+  const getSelectedCellsText = useCallback((): string => {
+    if (selectedRange === null) {
+      const value = table[selectedCell.row]?.[selectedCell.col]?.value ?? '';
+      return value;
+    }
+
+    const startRow = Math.min(selectedRange.start.row, selectedRange.end.row);
+    const endRow = Math.max(selectedRange.start.row, selectedRange.end.row);
+    const startCol = Math.min(selectedRange.start.col, selectedRange.end.col);
+    const endCol = Math.max(selectedRange.start.col, selectedRange.end.col);
+
+    const rows: string[] = [];
+
+    for (let row = startRow; row <= endRow; row++) {
+      const values: string[] = [];
+
+      for (let col = startCol; col <= endCol; col++) {
+        values.push(table[row]?.[col]?.value ?? '');
+      }
+
+      rows.push(values.join('\t'));
+    }
+
+    return rows.join('\n');
+  }, [selectedCell, selectedRange, table]);
+
+    const parseClipboardText = useCallback((text: string): string[][] => {
+    const lines = text.split(/\r?\n/);
+    const values: string[][] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i] === '') {
+        continue;
+      }
+
+      values.push(lines[i].split('\t'));
+    }
+
+    return values;
+  }, []);
+
   useEffect(() => {
     function isCtrlOrMetaPressed(event: globalThis.KeyboardEvent): boolean {
       return event.ctrlKey || event.metaKey;
@@ -122,8 +164,61 @@ function SpreadsheetTable() {
       return event.key.toLowerCase() === 'a' || event.code === 'KeyA';
     }
 
+    function isCKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'c' || event.code === 'KeyC';
+    }
+
+    function isXKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'x' || event.code === 'KeyX';
+    }
+
+    function isVKey(event: globalThis.KeyboardEvent): boolean {
+      return event.key.toLowerCase() === 'v' || event.code === 'KeyV';
+    }
+
     function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
       if (editingCell !== null) {
+        return;
+      }
+
+      if (isCtrlOrMetaPressed(event) && isCKey(event)) {
+        event.preventDefault();
+
+        const text = getSelectedCellsText();
+        void navigator.clipboard.writeText(text);
+
+        return;
+      }
+
+      if (isCtrlOrMetaPressed(event) && isXKey(event)) {
+        event.preventDefault();
+
+        const text = getSelectedCellsText();
+        void navigator.clipboard.writeText(text);
+        dispatch(clearSelectedCells());
+
+        return;
+      }
+
+      if (isCtrlOrMetaPressed(event) && isVKey(event)) {
+        event.preventDefault();
+
+        void navigator.clipboard.readText().then((text) => {
+          const values = parseClipboardText(text);
+
+          if (values.length === 0) {
+            return;
+          }
+
+          dispatch(
+            pasteCells({
+              startRow: selectedCell.row,
+              startCol: selectedCell.col,
+              values,
+            }),
+          );
+        });
+
         return;
       }
 
@@ -144,7 +239,6 @@ function SpreadsheetTable() {
         dispatch(redo());
         return;
       }
-
 
       if (isCtrlOrMetaPressed(event) && isZKey(event)) {
         event.preventDefault();
@@ -181,7 +275,7 @@ function SpreadsheetTable() {
     return () => {
       window.removeEventListener('keydown', handleWindowKeyDown, true);
     };
-  }, [dispatch, editingCell]);
+  }, [dispatch, editingCell, getSelectedCellsText, parseClipboardText, selectedCell]);
 
   const columnCount = table[0]?.length ?? 0;
 
@@ -331,7 +425,6 @@ function SpreadsheetTable() {
         row: contextMenu.row,
       }),
     );
-
 
     setContextMenu(null);
   }, [contextMenu, dispatch]);
@@ -500,7 +593,6 @@ function SpreadsheetTable() {
       return false;
     }
 
-
     const startRow = Math.min(selectedRange.start.row, selectedRange.end.row);
     const endRow = Math.max(selectedRange.start.row, selectedRange.end.row);
     const startCol = Math.min(selectedRange.start.col, selectedRange.end.col);
@@ -610,7 +702,6 @@ function SpreadsheetTable() {
                 </tr>
               );
             })}
-
 
             {bottomPadding > 0 && (
               <tr className="virtual-spacer-row">

@@ -8,6 +8,7 @@ import {
   clearSelectedCells,
   deleteColumn,
   deleteRow,
+  pasteCells,
   redo,
   replaceTable,
   setBackgroundColor,
@@ -32,6 +33,7 @@ autosaveMiddleware.startListening({
   matcher: isAnyOf(
     changeCell,
     clearSelectedCells,
+    pasteCells,
     addRow,
     deleteRow,
     addColumn,
