@@ -35,10 +35,15 @@ type DeleteColumnPayload = {
   col: number;
 };
 
+type PastedCell = {
+  value: string;
+  style: CellStyle | null;
+};
+
 type PasteCellsPayload = {
   startRow: number;
   startCol: number;
-  values: string[][];
+  cells: PastedCell[][];
 };
 
 type SetTextColorPayload = {
@@ -270,14 +275,14 @@ const spreadsheetSlice = createSlice({
         for (let col = 0; col < state.table[row].length; col++) {
           const pasteRow = row - action.payload.startRow;
           const pasteCol = col - action.payload.startCol;
-          const pastedValue = action.payload.values[pasteRow]?.[pasteCol];
+          const pastedCell = action.payload.cells[pasteRow]?.[pasteCol];
 
-          if (pastedValue !== undefined) {
+          if (pastedCell !== undefined) {
             newRow.push({
-              value: pastedValue,
-              result: pastedValue,
+              value: pastedCell.value,
+              result: pastedCell.value,
               type: 'text',
-              style: getCellStyle(state.table[row][col]),
+              style: pastedCell.style ?? getCellStyle(state.table[row][col]),
             });
           } else {
             newRow.push(state.table[row][col]);

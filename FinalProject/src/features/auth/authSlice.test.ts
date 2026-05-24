@@ -47,6 +47,7 @@ describe('authService', () => {
 
     expect(user.name).toBe('Андрей');
     expect(user.email).toBe('and2003@list.ru');
+    expect(user.createdAt).not.toBe('');
 
     const currentUser = getCurrentUser();
 
@@ -87,6 +88,7 @@ describe('authService', () => {
 
     expect(user.name).toBe('Андрей');
     expect(user.email).toBe('and2003@list.ru');
+    expect(user.createdAt).not.toBe('');
   });
 
   it('не должен входить с неправильным паролем', async () => {
@@ -138,6 +140,7 @@ describe('authService', () => {
 
     expect(updatedUser.name).toBe('Егор');
     expect(updatedUser.email).toBe('and2003@list.ru');
+    expect(updatedUser.createdAt).toBe(user.createdAt);
 
     const currentUser = getCurrentUser();
 
@@ -228,6 +231,7 @@ describe('authSlice', () => {
       id: 'user-1',
       name: 'Андрей',
       email: 'and2003@list.ru',
+      createdAt: '2026-01-01',
     };
 
     const state = authReducer(undefined, setUser(user));
@@ -245,12 +249,14 @@ describe('authSlice', () => {
       id: 'user-1',
       name: 'Андрей',
       email: 'and2003@list.ru',
+      createdAt: '2026-01-01',
     };
 
     const newUser = {
       id: 'user-1',
       name: 'Егор',
       email: 'and2003@list.ru',
+      createdAt: '2026-01-01',
     };
 
     const stateWithUser = authReducer(undefined, setUser(oldUser));
@@ -267,6 +273,7 @@ describe('authSlice', () => {
       id: 'user-1',
       name: 'Андрей',
       email: 'and2003@list.ru',
+      createdAt: '2026-01-01',
     };
 
     const authorizedState = authReducer(undefined, setUser(user));
@@ -281,6 +288,7 @@ describe('authSlice', () => {
       id: 'user-1',
       name: 'Андрей',
       email: 'and2003@list.ru',
+      createdAt: '2026-01-01',
     };
 
     localStorage.setItem('spreadsheet_current_user', JSON.stringify(savedUser));
@@ -302,6 +310,7 @@ describe('authSlice', () => {
       id: 'user-2',
       name: 'Егор',
       email: 'egorre@mail.ru',
+      createdAt: '2026-01-01',
     };
 
     const state = authReducer(undefined, setUser(user));

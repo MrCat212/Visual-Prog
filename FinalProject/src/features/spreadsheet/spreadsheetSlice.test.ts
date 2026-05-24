@@ -14,7 +14,7 @@ import spreadsheetReducer, {
   undo,
 } from '@/features/spreadsheet/spreadsheetSlice';
 import type { TableData } from '@/types/spreadsheet';
-import { createTable } from '@/utils/tableUtils';
+import { createDefaultCellStyle, createTable } from '@/utils/tableUtils';
 
 function createSmallTable(): TableData {
   return createTable(3, 3);
@@ -223,9 +223,27 @@ describe('spreadsheetSlice', () => {
       pasteCells({
         startRow: 0,
         startCol: 0,
-        values: [
-          ['A', 'B'],
-          ['C', 'D'],
+        cells: [
+          [
+            {
+              value: 'A',
+              style: null,
+            },
+            {
+              value: 'B',
+              style: null,
+            },
+          ],
+          [
+            {
+              value: 'C',
+              style: null,
+            },
+            {
+              value: 'D',
+              style: null,
+            },
+          ],
         ],
       }),
     );
@@ -234,5 +252,41 @@ describe('spreadsheetSlice', () => {
     expect(state.table[0][1].value).toBe('B');
     expect(state.table[1][0].value).toBe('C');
     expect(state.table[1][1].value).toBe('D');
+  });
+
+  it('должен вставлять значения вместе со стилями', () => {
+    let state = spreadsheetReducer(undefined, replaceTable(createSmallTable()));
+
+    const style = {
+      ...createDefaultCellStyle(),
+      isBold: true,
+      isItalic: true,
+      backgroundColor: '#ff0000',
+      textColor: '#ffffff',
+      textAlign: 'center' as const,
+    };
+
+    state = spreadsheetReducer(
+      state,
+      pasteCells({
+        startRow: 0,
+        startCol: 0,
+        cells: [
+          [
+            {
+              value: 'Styled',
+              style,
+            },
+          ],
+        ],
+      }),
+    );
+
+    expect(state.table[0][0].value).toBe('Styled');
+    expect(state.table[0][0].style.isBold).toBe(true);
+    expect(state.table[0][0].style.isItalic).toBe(true);
+    expect(state.table[0][0].style.backgroundColor).toBe('#ff0000');
+    expect(state.table[0][0].style.textColor).toBe('#ffffff');
+    expect(state.table[0][0].style.textAlign).toBe('center');
   });
 });

@@ -22,8 +22,8 @@ import {
   toggleUnderline,
   undo,
 } from '@/features/spreadsheet/spreadsheetSlice';
-import type { SelectedCell } from '@/types/spreadsheet';
-import { getColumnName } from '@/utils/tableUtils';
+import type { CellStyle, SelectedCell } from '@/types/spreadsheet';
+import { createDefaultCellStyle, getColumnName } from '@/utils/tableUtils';
 
 const ROWS = 1000;
 const COLS = 26;
@@ -58,6 +58,16 @@ type VisibleRows = {
   end: number;
 };
 
+type ClipboardCell = {
+  value: string;
+  style: CellStyle | null;
+};
+
+type InternalClipboard = {
+  text: string;
+  cells: ClipboardCell[][];
+};
+
 function SpreadsheetTable() {
   const dispatch = useAppDispatch();
 
@@ -66,6 +76,7 @@ function SpreadsheetTable() {
   const selectedRange = useAppSelector((state) => state.spreadsheet.selectedRange);
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const internalClipboardRef = useRef<InternalClipboard | null>(null);
 
   const [scrollTop, setScrollTop] = useState(0);
 
@@ -94,9 +105,23 @@ function SpreadsheetTable() {
   const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
   const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
 
-  const getSelectedCellsText = useCallback((): string => {
+  const getCellStyle = useCallback(
+    (row: number, col: number): CellStyle => {
+      return table[row]?.[col]?.style ?? createDefaultCellStyle();
+    },
+    [table],
+  );
+
+  const getSelectedCellsData = useCallback((): ClipboardCell[][] => {
     if (selectedRange === null) {
-      return table[selectedCell.row]?.[selectedCell.col]?.value ?? '';
+      return [
+        [
+          {
+            value: table[selectedCell.row]?.[selectedCell.col]?.value ?? '',
+            style: getCellStyle(selectedCell.row, selectedCell.col),
+          },
+        ],
+      ];
     }
 
     const startRow = Math.min(selectedRange.start.row, selectedRange.end.row);
@@ -104,34 +129,64 @@ function SpreadsheetTable() {
     const startCol = Math.min(selectedRange.start.col, selectedRange.end.col);
     const endCol = Math.max(selectedRange.start.col, selectedRange.end.col);
 
-    const rows: string[] = [];
+    const rows: ClipboardCell[][] = [];
 
     for (let row = startRow; row <= endRow; row++) {
-      const values: string[] = [];
+      const values: ClipboardCell[] = [];
 
       for (let col = startCol; col <= endCol; col++) {
-        values.push(table[row]?.[col]?.value ?? '');
+        values.push({
+          value: table[row]?.[col]?.value ?? '',
+          style: getCellStyle(row, col),
+        });
+      }
+
+      rows.push(values);
+    }
+
+    return rows;
+  }, [getCellStyle, selectedCell, selectedRange, table]);
+
+  const getSelectedCellsText = useCallback((): string => {
+    const cells = getSelectedCellsData();
+    const rows: string[] = [];
+
+    for (let row = 0; row < cells.length; row++) {
+      const values: string[] = [];
+
+      for (let col = 0; col < cells[row].length; col++) {
+        values.push(cells[row][col].value);
       }
 
       rows.push(values.join('\t'));
     }
 
     return rows.join('\n');
-  }, [selectedCell, selectedRange, table]);
+  }, [getSelectedCellsData]);
 
-  const parseClipboardText = useCallback((text: string): string[][] => {
+  const parseClipboardText = useCallback((text: string): ClipboardCell[][] => {
     const lines = text.split(/\r?\n/);
-    const values: string[][] = [];
+    const cells: ClipboardCell[][] = [];
 
     for (let i = 0; i < lines.length; i++) {
       if (lines[i] === '') {
         continue;
       }
 
-      values.push(lines[i].split('\t'));
+      const rowValues = lines[i].split('\t');
+      const row: ClipboardCell[] = [];
+
+      for (let j = 0; j < rowValues.length; j++) {
+        row.push({
+          value: rowValues[j],
+          style: null,
+        });
+      }
+
+      cells.push(row);
     }
 
-    return values;
+    return cells;
   }, []);
 
   useEffect(() => {
@@ -542,6 +597,13 @@ function SpreadsheetTable() {
     event.preventDefault();
 
     const text = getSelectedCellsText();
+    const cells = getSelectedCellsData();
+
+    internalClipboardRef.current = {
+      text,
+      cells,
+    };
+
     event.clipboardData.setData('text/plain', text);
   }
 
@@ -553,6 +615,13 @@ function SpreadsheetTable() {
     event.preventDefault();
 
     const text = getSelectedCellsText();
+    const cells = getSelectedCellsData();
+
+    internalClipboardRef.current = {
+      text,
+      cells,
+    };
+
     event.clipboardData.setData('text/plain', text);
     dispatch(clearSelectedCells());
   }
@@ -565,9 +634,14 @@ function SpreadsheetTable() {
     event.preventDefault();
 
     const text = event.clipboardData.getData('text/plain');
-    const values = parseClipboardText(text);
+    const internalClipboard = internalClipboardRef.current;
 
-    if (values.length === 0) {
+    const cells =
+      internalClipboard !== null && internalClipboard.text === text
+        ? internalClipboard.cells
+        : parseClipboardText(text);
+
+    if (cells.length === 0) {
       return;
     }
 
@@ -575,7 +649,7 @@ function SpreadsheetTable() {
       pasteCells({
         startRow: selectedCell.row,
         startCol: selectedCell.col,
-        values,
+        cells,
       }),
     );
   }

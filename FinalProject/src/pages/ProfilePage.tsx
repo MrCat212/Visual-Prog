@@ -2,8 +2,8 @@ import { useState } from 'react';
 
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { updateUser } from '@/features/auth/authSlice';
-import { getUserDocuments } from '@/services/documentService';
 import { changePassword, updateUserName } from '@/services/authService';
+import { getUserDocuments } from '@/services/documentService';
 
 function ProfilePage() {
   const dispatch = useAppDispatch();
@@ -23,7 +23,12 @@ function ProfilePage() {
     );
   }
 
-  const documents = getUserDocuments(user.id);
+  const userId = user.id;
+  const userName = user.name;
+  const userEmail = user.email;
+  const registrationDate = user.createdAt;
+
+  const documents = getUserDocuments(userId);
 
   let totalRows = 0;
   let totalCols = 0;
@@ -33,11 +38,25 @@ function ProfilePage() {
     totalCols += documents[i].cols;
   }
 
-  function handleSaveName() {
-    if (user === null) {
-      return;
+  function formatDate(date: string): string {
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return 'Нет данных';
     }
 
+    return parsedDate.toLocaleString('ru-RU');
+  }
+
+  function getRegistrationDate(): string {
+    if (registrationDate === undefined || registrationDate === '') {
+      return 'Нет данных';
+    }
+
+    return formatDate(registrationDate);
+  }
+
+  function handleSaveName() {
     const preparedName = name.trim();
 
     if (preparedName === '') {
@@ -47,7 +66,7 @@ function ProfilePage() {
 
     try {
       const updatedUser = updateUserName({
-        userId: user.id,
+        userId,
         name: preparedName,
       });
 
@@ -63,10 +82,6 @@ function ProfilePage() {
   }
 
   function handleChangePassword() {
-    if (user === null) {
-      return;
-    }
-
     if (oldPassword === '') {
       alert('Введите старый пароль');
       return;
@@ -84,7 +99,7 @@ function ProfilePage() {
 
     try {
       changePassword({
-        userId: user.id,
+        userId,
         oldPassword,
         newPassword,
       });
@@ -109,11 +124,19 @@ function ProfilePage() {
         <h2>Профиль</h2>
 
         <p>
-          <strong>Email:</strong> {user.email}
+          <strong>Имя:</strong> {userName}
         </p>
 
         <p>
-          <strong>ID:</strong> {user.id}
+          <strong>Email:</strong> {userEmail}
+        </p>
+
+        <p>
+          <strong>ID:</strong> {userId}
+        </p>
+
+        <p>
+          <strong>Дата регистрации:</strong> {getRegistrationDate()}
         </p>
       </div>
 
@@ -174,6 +197,10 @@ function ProfilePage() {
 
       <div className="profile-card">
         <h2>Статистика</h2>
+
+        <p>
+          <strong>Дата регистрации:</strong> {getRegistrationDate()}
+        </p>
 
         <p>
           <strong>Документов:</strong> {documents.length}

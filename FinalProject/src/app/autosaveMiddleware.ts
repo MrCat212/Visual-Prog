@@ -23,7 +23,7 @@ import {
 import { setSaveStatus } from '@/features/ui/uiSlice';
 import { updateDocumentData } from '@/services/documentService';
 
-const AUTOSAVE_DELAY = 6000;
+const AUTOSAVE_DELAY = 500;
 
 export const autosaveMiddleware = createListenerMiddleware();
 

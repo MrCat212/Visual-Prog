@@ -2,6 +2,7 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  createdAt: string;
 };
 
 type StoredUser = AuthUser & {
@@ -41,7 +42,8 @@ function getUsers(): StoredUser[] {
   }
 
   try {
-    return JSON.parse(json) as StoredUser[];
+    const users = JSON.parse(json) as StoredUser[];
+    return users;
   } catch {
     return [];
   }
@@ -57,6 +59,15 @@ function saveCurrentUser(user: AuthUser) {
 
 function createUserId(): string {
   return 'user-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+}
+
+function createAuthUser(user: StoredUser): AuthUser {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    createdAt: user.createdAt,
+  };
 }
 
 export function getCurrentUser(): AuthUser | null {
@@ -82,21 +93,20 @@ export function registerUser(data: RegisterData): AuthUser {
     }
   }
 
+  const now = new Date().toISOString();
+
   const newUser: StoredUser = {
     id: createUserId(),
     name: data.name,
     email: data.email,
     password: data.password,
+    createdAt: now,
   };
 
   users.push(newUser);
   saveUsers(users);
 
-  const authUser: AuthUser = {
-    id: newUser.id,
-    name: newUser.name,
-    email: newUser.email,
-  };
+  const authUser = createAuthUser(newUser);
 
   saveCurrentUser(authUser);
 
@@ -108,11 +118,7 @@ export function loginUser(data: LoginData): AuthUser {
 
   for (let i = 0; i < users.length; i++) {
     if (users[i].email === data.email && users[i].password === data.password) {
-      const authUser: AuthUser = {
-        id: users[i].id,
-        name: users[i].name,
-        email: users[i].email,
-      };
+      const authUser = createAuthUser(users[i]);
 
       saveCurrentUser(authUser);
 
@@ -137,12 +143,7 @@ export function updateUserName(data: UpdateUserNameData): AuthUser {
       };
 
       updatedUsers.push(newStoredUser);
-
-      updatedUser = {
-        id: newStoredUser.id,
-        name: newStoredUser.name,
-        email: newStoredUser.email,
-      };
+      updatedUser = createAuthUser(newStoredUser);
     } else {
       updatedUsers.push(users[i]);
     }
