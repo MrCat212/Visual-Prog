@@ -76,6 +76,7 @@ function SpreadsheetTable() {
   const selectedRange = useAppSelector((state) => state.spreadsheet.selectedRange);
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const internalClipboardRef = useRef<InternalClipboard | null>(null);
 
   const [scrollTop, setScrollTop] = useState(0);
@@ -105,11 +106,186 @@ function SpreadsheetTable() {
   const [resizingColumn, setResizingColumn] = useState<ResizingColumn | null>(null);
   const [resizingRow, setResizingRow] = useState<ResizingRow | null>(null);
 
+  const columnCount = table[0]?.length ?? 0;
+
+  const columnNames = useMemo(() => {
+    const names: string[] = [];
+
+    for (let i = 0; i < columnCount; i++) {
+      names.push(getColumnName(i));
+    }
+
+    return names;
+  }, [columnCount]);
+
+  const rowOffsets = useMemo(() => {
+    const offsets: number[] = [0];
+
+    for (let i = 0; i < table.length; i++) {
+      offsets.push(offsets[i] + (rowHeights[i] ?? DEFAULT_ROW_HEIGHT));
+    }
+
+    return offsets;
+  }, [rowHeights, table.length]);
+
+  const columnOffsets = useMemo(() => {
+    const offsets: number[] = [0];
+
+    for (let i = 0; i < columnCount; i++) {
+      offsets.push(offsets[i] + (columnWidths[i] ?? DEFAULT_COLUMN_WIDTH));
+    }
+
+    return offsets;
+  }, [columnCount, columnWidths]);
+
+  const totalRowsHeight = rowOffsets[rowOffsets.length - 1];
+
+  const visibleRows = useMemo<VisibleRows>(() => {
+    let start = 0;
+
+    while (start < table.length - 1 && rowOffsets[start + 1] < scrollTop) {
+      start++;
+    }
+
+    start = Math.max(0, start - EXTRA_ROWS);
+
+    let end = start;
+
+    while (end < table.length && rowOffsets[end] < scrollTop + TABLE_HEIGHT) {
+      end++;
+    }
+
+    end = Math.min(table.length, end + EXTRA_ROWS);
+
+    return {
+      start,
+      end,
+    };
+  }, [rowOffsets, scrollTop, table.length]);
+
+  const topPadding = rowOffsets[visibleRows.start];
+  const bottomPadding = totalRowsHeight - rowOffsets[visibleRows.end];
+
+  const activeCell = table[selectedCell.row]?.[selectedCell.col];
+
+  const visibleTableRows = useMemo(() => {
+    return table.slice(visibleRows.start, visibleRows.end);
+  }, [table, visibleRows]);
+
   const getCellStyle = useCallback(
     (row: number, col: number): CellStyle => {
       return table[row]?.[col]?.style ?? createDefaultCellStyle();
     },
     [table],
+  );
+
+  const scrollCellIntoView = useCallback(
+    (row: number, col: number) => {
+      const scrollElement = tableScrollRef.current;
+
+      if (scrollElement === null) {
+        return;
+      }
+
+      const cellTop = rowOffsets[row] ?? 0;
+      const cellBottom = rowOffsets[row + 1] ?? cellTop + DEFAULT_ROW_HEIGHT;
+      const cellLeft = columnOffsets[col] ?? 0;
+      const cellRight = columnOffsets[col + 1] ?? cellLeft + DEFAULT_COLUMN_WIDTH;
+
+      const visibleTop = scrollElement.scrollTop;
+      const visibleBottom = visibleTop + scrollElement.clientHeight;
+      const visibleLeft = scrollElement.scrollLeft;
+      const visibleRight = visibleLeft + scrollElement.clientWidth;
+
+      if (cellTop < visibleTop) {
+        scrollElement.scrollTop = cellTop;
+      } else if (cellBottom > visibleBottom) {
+        scrollElement.scrollTop = cellBottom - scrollElement.clientHeight;
+      }
+
+      if (cellLeft < visibleLeft) {
+        scrollElement.scrollLeft = cellLeft;
+      } else if (cellRight > visibleRight) {
+        scrollElement.scrollLeft = cellRight - scrollElement.clientWidth;
+      }
+    },
+    [columnOffsets, rowOffsets],
+  );
+
+  const moveSelection = useCallback(
+    (row: number, col: number, isBackward: boolean) => {
+      const rowCount = table.length;
+      const colCount = table[0]?.length ?? 0;
+
+      if (rowCount === 0 || colCount === 0) {
+        return;
+      }
+
+      let nextRow = row;
+      let nextCol = col;
+
+      if (isBackward) {
+        nextCol--;
+
+        if (nextCol < 0) {
+          nextRow--;
+          nextCol = colCount - 1;
+        }
+
+        if (nextRow < 0) {
+          nextRow = 0;
+          nextCol = 0;
+        }
+      } else {
+        nextCol++;
+
+        if (nextCol >= colCount) {
+          nextRow++;
+          nextCol = 0;
+        }
+
+        if (nextRow >= rowCount) {
+          nextRow = rowCount - 1;
+          nextCol = colCount - 1;
+        }
+      }
+
+      dispatch(
+        selectCell({
+          row: nextRow,
+          col: nextCol,
+        }),
+      );
+
+      wrapperRef.current?.focus();
+      scrollCellIntoView(nextRow, nextCol);
+    },
+    [dispatch, scrollCellIntoView, table],
+  );
+
+  const moveSelectionByOffset = useCallback(
+    (rowOffset: number, colOffset: number) => {
+      const rowCount = table.length;
+      const colCount = table[0]?.length ?? 0;
+
+      if (rowCount === 0 || colCount === 0) {
+        return;
+      }
+
+      const nextRow = Math.min(Math.max(selectedCell.row + rowOffset, 0), rowCount - 1);
+      const nextCol = Math.min(Math.max(selectedCell.col + colOffset, 0), colCount - 1);
+
+      dispatch(
+        selectCell({
+          row: nextRow,
+          col: nextCol,
+        }),
+      );
+
+      wrapperRef.current?.focus();
+      scrollCellIntoView(nextRow, nextCol);
+    },
+    [dispatch, scrollCellIntoView, selectedCell, table],
   );
 
   const getSelectedCellsData = useCallback((): ClipboardCell[][] => {
@@ -190,6 +366,10 @@ function SpreadsheetTable() {
   }, []);
 
   useEffect(() => {
+    scrollCellIntoView(selectedCell.row, selectedCell.col);
+  }, [scrollCellIntoView, selectedCell]);
+
+  useEffect(() => {
     function isCtrlOrMetaPressed(event: globalThis.KeyboardEvent): boolean {
       return event.ctrlKey || event.metaKey;
     }
@@ -218,8 +398,58 @@ function SpreadsheetTable() {
       return event.key.toLowerCase() === 'a' || event.code === 'KeyA';
     }
 
+    function isInteractiveTarget(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      const tagName = target.tagName;
+
+      return (
+        tagName === 'INPUT' ||
+        tagName === 'TEXTAREA' ||
+        tagName === 'SELECT' ||
+        tagName === 'BUTTON'
+      );
+    }
+
     function handleWindowKeyDown(event: globalThis.KeyboardEvent) {
       if (editingCell !== null) {
+        return;
+      }
+
+      if (isInteractiveTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveSelectionByOffset(-1, 0);
+        return;
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveSelectionByOffset(1, 0);
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        moveSelectionByOffset(0, -1);
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        moveSelectionByOffset(0, 1);
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        moveSelection(selectedCell.row, selectedCell.col, event.shiftKey);
         return;
       }
 
@@ -276,63 +506,7 @@ function SpreadsheetTable() {
     return () => {
       window.removeEventListener('keydown', handleWindowKeyDown, true);
     };
-  }, [dispatch, editingCell]);
-
-  const columnCount = table[0]?.length ?? 0;
-
-  const columnNames = useMemo(() => {
-    const names: string[] = [];
-
-    for (let i = 0; i < columnCount; i++) {
-      names.push(getColumnName(i));
-    }
-
-    return names;
-  }, [columnCount]);
-
-  const rowOffsets = useMemo(() => {
-    const offsets: number[] = [0];
-
-    for (let i = 0; i < table.length; i++) {
-      offsets.push(offsets[i] + (rowHeights[i] ?? DEFAULT_ROW_HEIGHT));
-    }
-
-    return offsets;
-  }, [rowHeights, table.length]);
-
-  const totalRowsHeight = rowOffsets[rowOffsets.length - 1];
-
-  const visibleRows = useMemo<VisibleRows>(() => {
-    let start = 0;
-
-    while (start < table.length - 1 && rowOffsets[start + 1] < scrollTop) {
-      start++;
-    }
-
-    start = Math.max(0, start - EXTRA_ROWS);
-
-    let end = start;
-
-    while (end < table.length && rowOffsets[end] < scrollTop + TABLE_HEIGHT) {
-      end++;
-    }
-
-    end = Math.min(table.length, end + EXTRA_ROWS);
-
-    return {
-      start,
-      end,
-    };
-  }, [rowOffsets, scrollTop, table.length]);
-
-  const topPadding = rowOffsets[visibleRows.start];
-  const bottomPadding = totalRowsHeight - rowOffsets[visibleRows.end];
-
-  const activeCell = table[selectedCell.row]?.[selectedCell.col];
-
-  const visibleTableRows = useMemo(() => {
-    return table.slice(visibleRows.start, visibleRows.end);
-  }, [table, visibleRows]);
+  }, [dispatch, editingCell, moveSelection, moveSelectionByOffset, selectedCell]);
 
   const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     setScrollTop(event.currentTarget.scrollTop);
@@ -361,8 +535,9 @@ function SpreadsheetTable() {
 
       setContextMenu(null);
       wrapperRef.current?.focus();
+      scrollCellIntoView(row, col);
     },
-    [dispatch, selectedCell],
+    [dispatch, scrollCellIntoView, selectedCell],
   );
 
   const handleStartEdit = useCallback((row: number, col: number) => {
@@ -374,6 +549,10 @@ function SpreadsheetTable() {
 
   const handleStopEdit = useCallback(() => {
     setEditingCell(null);
+
+    window.setTimeout(() => {
+      wrapperRef.current?.focus();
+    }, 0);
   }, []);
 
   const handleOpenContextMenu = useCallback((row: number, col: number, x: number, y: number) => {
@@ -682,7 +861,7 @@ function SpreadsheetTable() {
 
       <FormattingToolbar />
 
-      <div className="table-scroll" onScroll={handleScroll}>
+      <div className="table-scroll" ref={tableScrollRef} onScroll={handleScroll}>
         <table className="spreadsheet-table">
           <thead>
             <tr>
@@ -765,6 +944,7 @@ function SpreadsheetTable() {
                       onChange={handleCellChange}
                       onStartEdit={handleStartEdit}
                       onStopEdit={handleStopEdit}
+                      onMoveSelection={moveSelection}
                       onOpenContextMenu={handleOpenContextMenu}
                     />
                   ))}

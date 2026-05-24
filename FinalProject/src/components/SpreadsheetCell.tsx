@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 
 import type { Cell } from '@/types/spreadsheet';
@@ -17,6 +17,7 @@ type SpreadsheetCellProps = {
   onChange: (row: number, col: number, value: string) => void;
   onStartEdit: (row: number, col: number) => void;
   onStopEdit: () => void;
+  onMoveSelection: (row: number, col: number, isBackward: boolean) => void;
   onOpenContextMenu: (row: number, col: number, x: number, y: number) => void;
 };
 
@@ -33,10 +34,19 @@ function SpreadsheetCell({
   onChange,
   onStartEdit,
   onStopEdit,
+  onMoveSelection,
   onOpenContextMenu,
 }: SpreadsheetCellProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const isClosingEditRef = useRef(false);
+
   const style = cell.style ?? createDefaultCellStyle();
+
+  useEffect(() => {
+    if (isEditing) {
+      isClosingEditRef.current = false;
+    }
+  }, [isEditing]);
 
   function handleClick(event: MouseEvent<HTMLTableCellElement>) {
     onSelect(row, col, event.shiftKey);
@@ -55,6 +65,12 @@ function SpreadsheetCell({
   }
 
   function finishEditing() {
+    if (isClosingEditRef.current) {
+      return;
+    }
+
+    isClosingEditRef.current = true;
+
     const value = inputRef.current?.value ?? cell.value;
 
     onChange(row, col, value);
@@ -62,6 +78,7 @@ function SpreadsheetCell({
   }
 
   function cancelEditing() {
+    isClosingEditRef.current = true;
     onStopEdit();
   }
 
@@ -70,12 +87,22 @@ function SpreadsheetCell({
       event.preventDefault();
       event.stopPropagation();
       finishEditing();
+      return;
     }
 
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       cancelEditing();
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+
+      finishEditing();
+      onMoveSelection(row, col, event.shiftKey);
     }
   }
 
