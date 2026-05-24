@@ -189,7 +189,6 @@ function getRangeNumbers(range: string, table: TableData): number[] {
 
   const numbers: number[] = [];
 
-
   const startRow = Math.min(start.row, end.row);
   const endRow = Math.max(start.row, end.row);
   const startCol = Math.min(start.col, end.col);

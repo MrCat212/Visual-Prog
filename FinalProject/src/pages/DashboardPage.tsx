@@ -9,10 +9,7 @@ import {
   loadUserDocuments,
   renameUserDocument,
 } from '@/features/documents/documentsSlice';
-import {
-  closeCreateDocumentModal,
-  openCreateDocumentModal,
-} from '@/features/ui/uiSlice';
+import { closeCreateDocumentModal, openCreateDocumentModal } from '@/features/ui/uiSlice';
 import type { SpreadsheetDocument } from '@/types/document';
 
 function DashboardPage() {
@@ -173,7 +170,6 @@ function DashboardPage() {
           Создать документ
         </button>
       </div>
-
 
       {isLoading && <p>Загрузка документов...</p>}
 

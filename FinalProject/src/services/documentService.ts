@@ -40,10 +40,7 @@ export function getUserDocuments(userId: string): SpreadsheetDocument[] {
   return userDocuments;
 }
 
-export function getDocumentById(
-  documentId: string,
-  userId: string,
-): SpreadsheetDocument | null {
+export function getDocumentById(documentId: string, userId: string): SpreadsheetDocument | null {
   const documents = getAllDocuments();
 
   for (let i = 0; i < documents.length; i++) {
@@ -67,10 +64,7 @@ export function getDocumentByIdForAnyUser(documentId: string): SpreadsheetDocume
   return null;
 }
 
-export function createDocument(
-  userId: string,
-  data: CreateDocumentData,
-): SpreadsheetDocument {
+export function createDocument(userId: string, data: CreateDocumentData): SpreadsheetDocument {
   const now = new Date().toISOString();
 
   const document: SpreadsheetDocument = {
@@ -167,16 +161,12 @@ export function deleteDocument(documentId: string, userId: string) {
   saveAllDocuments(newDocuments);
 }
 
-export function duplicateDocument(
-  documentId: string,
-  userId: string,
-): SpreadsheetDocument | null {
+export function duplicateDocument(documentId: string, userId: string): SpreadsheetDocument | null {
   const document = getDocumentById(documentId, userId);
 
   if (document === null) {
     return null;
   }
-
 
   const now = new Date().toISOString();
 

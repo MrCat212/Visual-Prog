@@ -161,18 +161,17 @@ describe('documentsSlice', () => {
       title: 'Документ копия',
     };
 
-
     const stateWithDocument = documentsReducer(undefined, {
-        type: createUserDocument.fulfilled.type,
-        payload: document,
-      });
-  
-      const state = documentsReducer(stateWithDocument, {
-        type: duplicateUserDocument.fulfilled.type,
-        payload: copy,
-      });
-  
-      expect(state.documents.length).toBe(2);
-      expect(state.documents[1].title).toBe('Документ копия');
+      type: createUserDocument.fulfilled.type,
+      payload: document,
     });
-  });  
+
+    const state = documentsReducer(stateWithDocument, {
+      type: duplicateUserDocument.fulfilled.type,
+      payload: copy,
+    });
+
+    expect(state.documents.length).toBe(2);
+    expect(state.documents[1].title).toBe('Документ копия');
+  });
+});

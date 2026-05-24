@@ -15,12 +15,7 @@ import {
   getDocumentByIdForAnyUser,
   updateDocumentData,
 } from '@/services/documentService';
-import {
-  csvToTable,
-  downloadTextFile,
-  tableToCsv,
-  tableToJson,
-} from '@/utils/fileUtils';
+import { csvToTable, downloadTextFile, tableToCsv, tableToJson } from '@/utils/fileUtils';
 
 type CsvInfo = {
   documentId: string;
@@ -161,7 +156,6 @@ function SpreadsheetPage() {
     const csv = tableToCsv(table);
     downloadTextFile(document.title + '.csv', csv, 'text/csv');
   }
-
 
   function handleExportJson() {
     if (document === null) {

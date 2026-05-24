@@ -672,10 +672,7 @@ function SpreadsheetTable() {
 
     function handleMouseMove(event: globalThis.MouseEvent) {
       const difference = event.clientX - currentResizingColumn.startX;
-      const newWidth = Math.max(
-        MIN_COLUMN_WIDTH,
-        currentResizingColumn.startWidth + difference,
-      );
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, currentResizingColumn.startWidth + difference);
 
       setColumnWidths((oldWidths) => {
         const newWidths: number[] = [];

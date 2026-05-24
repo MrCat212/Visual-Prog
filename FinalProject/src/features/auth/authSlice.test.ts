@@ -241,9 +241,7 @@ describe('authSlice', () => {
   });
 
   it('должен обновлять пользователя', async () => {
-    const { default: authReducer, setUser, updateUser } = await import(
-      '@/features/auth/authSlice'
-    );
+    const { default: authReducer, setUser, updateUser } = await import('@/features/auth/authSlice');
 
     const oldUser = {
       id: 'user-1',
