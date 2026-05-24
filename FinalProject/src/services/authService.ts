@@ -19,6 +19,17 @@ type LoginData = {
   password: string;
 };
 
+type UpdateUserNameData = {
+  userId: string;
+  name: string;
+};
+
+type ChangePasswordData = {
+  userId: string;
+  oldPassword: string;
+  newPassword: string;
+};
+
 const USERS_KEY = 'spreadsheet_users';
 const CURRENT_USER_KEY = 'spreadsheet_current_user';
 
@@ -110,6 +121,75 @@ export function loginUser(data: LoginData): AuthUser {
   }
 
   throw new Error('Неверный email или пароль');
+}
+
+export function updateUserName(data: UpdateUserNameData): AuthUser {
+  const users = getUsers();
+  const updatedUsers: StoredUser[] = [];
+
+  let updatedUser: AuthUser | null = null;
+
+  for (let i = 0; i < users.length; i++) {
+    if (users[i].id === data.userId) {
+      const newStoredUser: StoredUser = {
+        ...users[i],
+        name: data.name,
+      };
+
+      updatedUsers.push(newStoredUser);
+
+      updatedUser = {
+        id: newStoredUser.id,
+        name: newStoredUser.name,
+        email: newStoredUser.email,
+      };
+    } else {
+      updatedUsers.push(users[i]);
+    }
+  }
+
+  if (updatedUser === null) {
+    throw new Error('Пользователь не найден');
+  }
+
+  saveUsers(updatedUsers);
+  saveCurrentUser(updatedUser);
+
+  return updatedUser;
+}
+
+export function changePassword(data: ChangePasswordData) {
+  const users = getUsers();
+  const updatedUsers: StoredUser[] = [];
+
+  let isChanged = false;
+
+  for (let i = 0; i < users.length; i++) {
+    if (users[i].id === data.userId) {
+      if (users[i].password !== data.oldPassword) {
+        throw new Error('Старый пароль введён неверно');
+      }
+
+      if (data.newPassword === users[i].password) {
+        throw new Error('Новый пароль должен отличаться от старого');
+      }
+
+      updatedUsers.push({
+        ...users[i],
+        password: data.newPassword,
+      });
+
+      isChanged = true;
+    } else {
+      updatedUsers.push(users[i]);
+    }
+  }
+
+  if (!isChanged) {
+    throw new Error('Пользователь не найден');
+  }
+
+  saveUsers(updatedUsers);
 }
 
 export function logoutUser() {

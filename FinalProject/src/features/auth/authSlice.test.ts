@@ -37,7 +37,7 @@ describe('authService', () => {
   });
 
   it('должен регистрировать пользователя', async () => {
-    const { registerUser, getCurrentUser } = await import('@/services/authService');
+    const { getCurrentUser, registerUser } = await import('@/services/authService');
 
     const user = registerUser({
       name: 'Андрей',
@@ -72,7 +72,7 @@ describe('authService', () => {
   });
 
   it('должен входить по правильному email и паролю', async () => {
-    const { registerUser, loginUser } = await import('@/services/authService');
+    const { loginUser, registerUser } = await import('@/services/authService');
 
     registerUser({
       name: 'Андрей',
@@ -90,7 +90,7 @@ describe('authService', () => {
   });
 
   it('не должен входить с неправильным паролем', async () => {
-    const { registerUser, loginUser } = await import('@/services/authService');
+    const { loginUser, registerUser } = await import('@/services/authService');
 
     registerUser({
       name: 'Андрей',
@@ -107,7 +107,7 @@ describe('authService', () => {
   });
 
   it('должен выходить из аккаунта', async () => {
-    const { registerUser, getCurrentUser, logoutUser } = await import('@/services/authService');
+    const { getCurrentUser, logoutUser, registerUser } = await import('@/services/authService');
 
     registerUser({
       name: 'Андрей',
@@ -120,6 +120,87 @@ describe('authService', () => {
     logoutUser();
 
     expect(getCurrentUser()).toBe(null);
+  });
+
+  it('должен изменять имя пользователя', async () => {
+    const { getCurrentUser, registerUser, updateUserName } = await import('@/services/authService');
+
+    const user = registerUser({
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    const updatedUser = updateUserName({
+      userId: user.id,
+      name: 'Егор',
+    });
+
+    expect(updatedUser.name).toBe('Егор');
+    expect(updatedUser.email).toBe('and2003@list.ru');
+
+    const currentUser = getCurrentUser();
+
+    expect(currentUser).toEqual(updatedUser);
+  });
+
+  it('должен менять пароль пользователя', async () => {
+    const { changePassword, loginUser, registerUser } = await import('@/services/authService');
+
+    const user = registerUser({
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    changePassword({
+      userId: user.id,
+      oldPassword: '12345678',
+      newPassword: '87654321',
+    });
+
+    const loggedUser = loginUser({
+      email: 'and2003@list.ru',
+      password: '87654321',
+    });
+
+    expect(loggedUser.email).toBe('and2003@list.ru');
+  });
+
+  it('не должен менять пароль при неправильном старом пароле', async () => {
+    const { changePassword, registerUser } = await import('@/services/authService');
+
+    const user = registerUser({
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    expect(() =>
+      changePassword({
+        userId: user.id,
+        oldPassword: 'wrong-password',
+        newPassword: '87654321',
+      }),
+    ).toThrow('Старый пароль введён неверно');
+  });
+
+  it('не должен менять пароль на текущий пароль', async () => {
+    const { changePassword, registerUser } = await import('@/services/authService');
+
+    const user = registerUser({
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    expect(() =>
+      changePassword({
+        userId: user.id,
+        oldPassword: '12345678',
+        newPassword: '12345678',
+      }),
+    ).toThrow('Новый пароль должен отличаться от старого');
   });
 });
 
@@ -153,6 +234,30 @@ describe('authSlice', () => {
 
     expect(state.user).toEqual(user);
     expect(state.isAuthorized).toBe(true);
+  });
+
+  it('должен обновлять пользователя', async () => {
+    const { default: authReducer, setUser, updateUser } = await import(
+      '@/features/auth/authSlice'
+    );
+
+    const oldUser = {
+      id: 'user-1',
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+    };
+
+    const newUser = {
+      id: 'user-1',
+      name: 'Егор',
+      email: 'and2003@list.ru',
+    };
+
+    const stateWithUser = authReducer(undefined, setUser(oldUser));
+    const updatedState = authReducer(stateWithUser, updateUser(newUser));
+
+    expect(updatedState.user).toEqual(newUser);
+    expect(updatedState.isAuthorized).toBe(true);
   });
 
   it('должен выходить из аккаунта', async () => {

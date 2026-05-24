@@ -568,3 +568,26 @@ input {
 .formatting-toolbar select {
   padding: 6px;
 }
+
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.profile-card input {
+  padding: 8px;
+  border: 1px solid #bdbdbd;
+}
+
+.profile-card button {
+  padding: 8px 12px;
+  cursor: pointer;
+}
