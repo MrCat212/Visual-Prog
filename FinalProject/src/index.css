@@ -591,3 +591,133 @@ input {
   padding: 8px 12px;
   cursor: pointer;
 }
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 180px;
+    padding: 14px;
+  }
+
+  .sidebar h2 {
+    font-size: 18px;
+  }
+
+  .layout-header {
+    padding: 14px 16px;
+  }
+
+  .layout-header h1 {
+    font-size: 24px;
+  }
+
+  .layout-main {
+    padding: 12px;
+  }
+
+  .dashboard-page,
+  .spreadsheet-page {
+    padding: 12px;
+  }
+
+  .dashboard-header,
+  .spreadsheet-page-header,
+  .document-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .spreadsheet-page-actions,
+  .document-actions,
+  .create-document-form,
+  .rename-form {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .spreadsheet-page-actions button,
+  .document-actions button,
+  .create-document-form button,
+  .rename-form button,
+  .import-button {
+    min-height: 36px;
+  }
+
+  .formatting-toolbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .formula-bar {
+    align-items: flex-start;
+  }
+
+  .table-scroll {
+    height: 560px;
+  }
+
+  .document-preview {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .profile-card {
+    max-width: 100%;
+  }
+
+  .auth-card {
+    width: 340px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #d0d0d0;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .logout-button {
+    width: auto;
+  }
+
+  .layout-main {
+    padding: 10px;
+  }
+
+  .spreadsheet-page-actions,
+  .document-actions,
+  .create-document-form,
+  .rename-form,
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .spreadsheet-page-actions button,
+  .document-actions button,
+  .create-document-form button,
+  .rename-form button,
+  .modal-actions button,
+  .import-button {
+    width: 100%;
+  }
+
+  .table-scroll {
+    height: 500px;
+  }
+
+  .modal-window {
+    width: calc(100vw - 32px);
+  }
+
+  .auth-card {
+    width: calc(100vw - 32px);
+  }
+}

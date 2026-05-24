@@ -31,8 +31,16 @@ type ChangePasswordData = {
   newPassword: string;
 };
 
+type AuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
+
 const USERS_KEY = 'spreadsheet_users';
 const CURRENT_USER_KEY = 'spreadsheet_current_user';
+const REFRESH_TOKEN_KEY = 'spreadsheet_refresh_token';
+
+let accessToken: string | null = null;
 
 function getUsers(): StoredUser[] {
   const json = localStorage.getItem(USERS_KEY);
@@ -42,8 +50,7 @@ function getUsers(): StoredUser[] {
   }
 
   try {
-    const users = JSON.parse(json) as StoredUser[];
-    return users;
+    return JSON.parse(json) as StoredUser[];
   } catch {
     return [];
   }
@@ -61,6 +68,10 @@ function createUserId(): string {
   return 'user-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 }
 
+function createToken(prefix: string, userId: string): string {
+  return prefix + '-' + userId + '-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+}
+
 function createAuthUser(user: StoredUser): AuthUser {
   return {
     id: user.id,
@@ -68,6 +79,18 @@ function createAuthUser(user: StoredUser): AuthUser {
     email: user.email,
     createdAt: user.createdAt,
   };
+}
+
+function createSession(userId: string): AuthTokens {
+  const tokens: AuthTokens = {
+    accessToken: createToken('access', userId),
+    refreshToken: createToken('refresh', userId),
+  };
+
+  accessToken = tokens.accessToken;
+  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+
+  return tokens;
 }
 
 export function getCurrentUser(): AuthUser | null {
@@ -82,6 +105,27 @@ export function getCurrentUser(): AuthUser | null {
   } catch {
     return null;
   }
+}
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function refreshAccessToken(): string {
+  const currentUser = getCurrentUser();
+  const refreshToken = getRefreshToken();
+
+  if (currentUser === null || refreshToken === null) {
+    throw new Error('Не удалось обновить Access Token');
+  }
+
+  accessToken = createToken('access', currentUser.id);
+
+  return accessToken;
 }
 
 export function registerUser(data: RegisterData): AuthUser {
@@ -109,6 +153,7 @@ export function registerUser(data: RegisterData): AuthUser {
   const authUser = createAuthUser(newUser);
 
   saveCurrentUser(authUser);
+  createSession(authUser.id);
 
   return authUser;
 }
@@ -121,6 +166,7 @@ export function loginUser(data: LoginData): AuthUser {
       const authUser = createAuthUser(users[i]);
 
       saveCurrentUser(authUser);
+      createSession(authUser.id);
 
       return authUser;
     }
@@ -194,5 +240,7 @@ export function changePassword(data: ChangePasswordData) {
 }
 
 export function logoutUser() {
+  accessToken = null;
   localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }

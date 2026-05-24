@@ -54,6 +54,20 @@ describe('authService', () => {
     expect(currentUser).toEqual(user);
   });
 
+  it('должен создавать токены при регистрации', async () => {
+    const { getAccessToken, getRefreshToken, registerUser } =
+      await import('@/services/authService');
+
+    registerUser({
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    expect(getAccessToken()).toContain('access-');
+    expect(getRefreshToken()).toContain('refresh-');
+  });
+
   it('не должен регистрировать пользователя с повторным email', async () => {
     const { registerUser } = await import('@/services/authService');
 
@@ -91,6 +105,48 @@ describe('authService', () => {
     expect(user.createdAt).not.toBe('');
   });
 
+  it('должен создавать токены при входе', async () => {
+    const { getAccessToken, getRefreshToken, loginUser, registerUser } =
+      await import('@/services/authService');
+
+    registerUser({
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    loginUser({
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    expect(getAccessToken()).toContain('access-');
+    expect(getRefreshToken()).toContain('refresh-');
+  });
+
+  it('должен обновлять Access Token через Refresh Token', async () => {
+    const { getAccessToken, refreshAccessToken, registerUser } =
+      await import('@/services/authService');
+
+    registerUser({
+      name: 'Андрей',
+      email: 'and2003@list.ru',
+      password: '12345678',
+    });
+
+    const oldAccessToken = getAccessToken();
+    const newAccessToken = refreshAccessToken();
+
+    expect(newAccessToken).toContain('access-');
+    expect(newAccessToken).not.toBe(oldAccessToken);
+  });
+
+  it('не должен обновлять Access Token без Refresh Token', async () => {
+    const { refreshAccessToken } = await import('@/services/authService');
+
+    expect(() => refreshAccessToken()).toThrow('Не удалось обновить Access Token');
+  });
+
   it('не должен входить с неправильным паролем', async () => {
     const { loginUser, registerUser } = await import('@/services/authService');
 
@@ -109,7 +165,8 @@ describe('authService', () => {
   });
 
   it('должен выходить из аккаунта', async () => {
-    const { getCurrentUser, logoutUser, registerUser } = await import('@/services/authService');
+    const { getAccessToken, getCurrentUser, getRefreshToken, logoutUser, registerUser } =
+      await import('@/services/authService');
 
     registerUser({
       name: 'Андрей',
@@ -118,10 +175,14 @@ describe('authService', () => {
     });
 
     expect(getCurrentUser()).not.toBe(null);
+    expect(getAccessToken()).not.toBe(null);
+    expect(getRefreshToken()).not.toBe(null);
 
     logoutUser();
 
     expect(getCurrentUser()).toBe(null);
+    expect(getAccessToken()).toBe(null);
+    expect(getRefreshToken()).toBe(null);
   });
 
   it('должен изменять имя пользователя', async () => {
